@@ -287,8 +287,9 @@ export default function LoginPage() {
 
                         {state === "login" && (
                             <div className="flex justify-end pt-1">
-                                <button type="button" className="text-xs text-gray-500 hover:text-black dark:hover:text-white transition-colors">
-                                    ¿Olvidaste tu contraseña?
+                                <button type="button" className="text-xs text-gray-400 hover:text-red-500 transition-colors text-right leading-tight">
+                                    ¿Olvidaste tu contraseña? <br />
+                                    Contacta con el administrador para resetearla
                                 </button>
                             </div>
                         )}
