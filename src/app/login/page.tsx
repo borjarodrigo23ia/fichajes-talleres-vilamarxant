@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { authService } from '@/services/auth';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Info, X } from 'lucide-react';
 import LoginInstallPrompt from '@/components/pwa/LoginInstallPrompt';
 
 export default function LoginPage() {
@@ -15,6 +15,7 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [showForgotModal, setShowForgotModal] = useState(false);
 
     const [centers, setCenters] = useState<{ rowid: number, label: string }[]>([]);
 
@@ -287,9 +288,12 @@ export default function LoginPage() {
 
                         {state === "login" && (
                             <div className="flex justify-end pt-1">
-                                <button type="button" className="text-xs text-gray-400 hover:text-red-500 transition-colors text-right leading-tight">
-                                    ¿Olvidaste tu contraseña? <br />
-                                    Contacta con el administrador para resetearla
+                                <button
+                                    type="button"
+                                    onClick={() => setShowForgotModal(true)}
+                                    className="text-xs text-gray-500 hover:text-black dark:hover:text-white transition-colors"
+                                >
+                                    ¿Olvidaste tu contraseña?
                                 </button>
                             </div>
                         )}
@@ -326,6 +330,43 @@ export default function LoginPage() {
             </div>
 
             <LoginInstallPrompt />
+
+            {/* Forgot Password Modal */}
+            {showForgotModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
+                    <div
+                        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                        onClick={() => setShowForgotModal(false)}
+                    />
+                    <div className="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-[2rem] shadow-2xl p-8 text-center animate-slide-up overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-full h-1.5 bg-black dark:bg-white/20" />
+                        <button
+                            onClick={() => setShowForgotModal(false)}
+                            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-black dark:hover:text-white transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+
+                        <div className="w-16 h-16 bg-black/[0.03] dark:bg-white/[0.05] rounded-2xl flex items-center justify-center mx-auto mb-6 text-black dark:text-white">
+                            <Info size={32} strokeWidth={1.5} />
+                        </div>
+
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                            ¿Necesitas ayuda?
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-8">
+                            Para resetear tu contraseña, por favor <span className="font-bold text-black dark:text-white">contacta con tu administrador</span> o responsable de personal. Ellos podrán generarte una nueva clave de acceso.
+                        </p>
+
+                        <button
+                            onClick={() => setShowForgotModal(false)}
+                            className="w-full py-4 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold text-sm tracking-tight hover:opacity-90 active:scale-[0.98] transition-all"
+                        >
+                            Entendido
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
