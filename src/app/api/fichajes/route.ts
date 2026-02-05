@@ -1,0 +1,71 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: NextRequest) {
+    try {
+        const apiKey = request.headers.get('DOLAPIKEY');
+        if (!apiKey) {
+            return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const sortfield = searchParams.get('sortfield') || 'f.rowid';
+        const sortorder = searchParams.get('sortorder') || 'DESC';
+        const limit = searchParams.get('limit') || '100';
+        const page = searchParams.get('page') || '';
+        const fkUser = searchParams.get('fk_user') || '';
+
+        // Construir la URL base
+        let url = `/fichajestrabajadoresapi/fichajes?sortfield=${sortfield}&sortorder=${sortorder}&limit=${limit}`;
+        if (page) url += `&page=${page}`;
+        if (fkUser) url += `&fk_user=${fkUser}`;
+
+        const apiUrl = process.env.NEXT_PUBLIC_DOLIBARR_API_URL;
+        if (!apiUrl) throw new Error('Dolibarr API URL not configured');
+
+        const response = await fetch(`${apiUrl}${url}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'DOLAPIKEY': apiKey
+            }
+        });
+
+        if (!response.ok) {
+            return NextResponse.json(
+                { error: 'Error al obtener fichajes de Dolibarr' },
+                { status: response.status }
+            );
+        }
+
+        const data = await response.json();
+
+        // El frontend espera { success: true, fichajes: [...] } pero Dolibarr devuelve array directo a veces
+        // El hook de frontend ya maneja si devuelve array o objeto.
+        // Sin embargo, el route original en frontend hacía mapping.
+        // Vamos a replicar el mapping básico para ser compatibles.
+
+        const fichajes = Array.isArray(data) ? data.map((fichaje: any) => ({
+            id: fichaje.id,
+            fk_user: fichaje.fk_user,
+            usuario: fichaje.usuario,
+            usuario_nombre: fichaje.usuario_nombre, // Preserve this field for history display
+            tipo: fichaje.tipo,
+            observaciones: fichaje.observaciones,
+            latitud: fichaje.latitud,
+            longitud: fichaje.longitud,
+            fecha_creacion: fichaje.fecha_creacion,
+            tiene_ubicacion: !!(fichaje.latitud && fichaje.longitud)
+        })) : [];
+
+        return NextResponse.json({ success: true, fichajes });
+
+    } catch (error: any) {
+        console.error('API Fichajes Error:', error);
+        return NextResponse.json(
+            { error: 'Error interno del servidor', details: error.message },
+            { status: 500 }
+        );
+    }
+}

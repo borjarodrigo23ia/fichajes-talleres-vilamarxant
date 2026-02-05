@@ -1,0 +1,385 @@
+'use client';
+import { useMemo, useState, useEffect } from 'react';
+import { X, Plus, Trash2, Calendar, Clock, MessageSquare, Info, History } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { useAuth } from '@/context/AuthContext';
+import { cn } from '@/lib/utils';
+
+type Pausa = { inicio: string; fin: string };
+
+export type ManualFichajePayload = {
+    fecha: string;
+    entrada_iso: string;
+    salida_iso: string;
+    pausas: Array<{ inicio_iso: string; fin_iso: string }>;
+    usuario?: string;
+};
+
+function isValidDateStr(value: string) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+function isValidTimeStr(value: string) {
+    return /^\d{2}:\d{2}$/.test(value);
+}
+
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { TimelineEvent } from '@/lib/fichajes-utils';
+
+export default function ManualFichajeModal({
+    isOpen,
+    onClose,
+    onSaved,
+    initialDate,
+    targetEvent
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    onSaved: () => void | Promise<void>;
+    initialDate?: string;
+    targetEvent?: TimelineEvent;
+}) {
+    const { user } = useAuth();
+    const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+    const [fecha, setFecha] = useState(initialDate || today);
+    const [entrada, setEntrada] = useState('');
+    const [salida, setSalida] = useState('');
+    const [pausas, setPausas] = useState<Pausa[]>([]);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [observaciones, setObservaciones] = useState('');
+
+    const isSimpleMode = !!targetEvent;
+
+    useEffect(() => {
+        if (initialDate) setFecha(initialDate);
+    }, [initialDate]);
+
+    // Initialize from targeted event
+    useEffect(() => {
+        if (targetEvent) {
+            const timeStr = format(targetEvent.time, 'HH:mm');
+            if (targetEvent.type === 'entrada') {
+                setEntrada(timeStr);
+                setSalida('');
+            } else if (targetEvent.type === 'salida') {
+                setSalida(timeStr);
+                setEntrada('');
+            }
+        }
+    }, [targetEvent]);
+
+    if (!isOpen) return null;
+
+    const addPausa = () => setPausas(p => [...p, { inicio: '', fin: '' }]);
+    const removePausa = (idx: number) => setPausas(p => p.filter((_, i) => i !== idx));
+    const updatePausa = (idx: number, patch: Partial<Pausa>) =>
+        setPausas(p => p.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+
+    const validate = (): string | null => {
+        if (!isValidDateStr(fecha)) return 'La fecha no es válida.';
+
+        if (isSimpleMode) {
+            if (targetEvent?.type === 'entrada' && !isValidTimeStr(entrada)) return 'La hora de entrada es necesaria.';
+            if (targetEvent?.type === 'salida' && !isValidTimeStr(salida)) return 'La hora de salida es necesaria.';
+            return null;
+        }
+
+        if (!isValidTimeStr(entrada)) return 'La hora de entrada es necesaria.';
+        if (!isValidTimeStr(salida)) return 'La hora de salida es necesaria.';
+        if (entrada >= salida) return 'La salida debe ser posterior a la entrada.';
+        for (const [i, p] of pausas.entries()) {
+            if (!isValidTimeStr(p.inicio) || !isValidTimeStr(p.fin)) return `Pausa #${i + 1}: faltan horas.`;
+            if (p.inicio >= p.fin) return `Pausa #${i + 1}: el fin debe ser posterior al inicio.`;
+            if (p.inicio < entrada || p.fin > salida) return `Pausa #${i + 1}: debe estar dentro de la jornada principal.`;
+        }
+        const sorted = [...pausas].sort((a, b) => a.inicio.localeCompare(b.inicio));
+        for (let i = 1; i < sorted.length; i++) {
+            if (sorted[i].inicio < sorted[i - 1].fin) return 'Las pausas no pueden solaparse.';
+        }
+        return null;
+    };
+
+    const submit = async () => {
+        const v = validate();
+        if (v) {
+            setError(v);
+            return;
+        }
+        setError(null);
+        setSaving(true);
+        try {
+            const entradaIso = entrada ? new Date(`${fecha}T${entrada}:00`).toISOString() : '';
+            const salidaIso = salida ? new Date(`${fecha}T${salida}:00`).toISOString() : '';
+            const fechaUtc = fecha;
+
+            const pausasPayload = pausas.map(p => ({
+                inicio_iso: new Date(`${fecha}T${p.inicio}:00`).toISOString(),
+                fin_iso: new Date(`${fecha}T${p.fin}:00`).toISOString(),
+            }));
+
+            const token = typeof window !== 'undefined' ? localStorage.getItem('dolibarr_token') : '';
+
+            if (user?.admin) {
+                const payload: ManualFichajePayload = {
+                    fecha: fechaUtc,
+                    entrada_iso: entradaIso,
+                    salida_iso: salidaIso,
+                    pausas: pausasPayload,
+                    usuario: user?.login,
+                };
+
+                const res = await fetch('/api/fichajes/manual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'DOLAPIKEY': token || '' },
+                    body: JSON.stringify(payload),
+                });
+                if (!res.ok) throw new Error('Error al guardar el fichaje');
+                toast.success('Fichaje guardado correctamente');
+            } else {
+                // Non-admin: Send correction request
+                const pausasJson = pausasPayload.map(p => ({
+                    inicio_iso: p.inicio_iso,
+                    fin_iso: p.fin_iso
+                }));
+
+                const payload = {
+                    fecha_jornada: fechaUtc,
+                    hora_entrada: entradaIso || null,
+                    hora_salida: salidaIso || null,
+                    pausas: pausasJson,
+                    observaciones: observaciones || `Solicitud de corrección para ${targetEvent?.label || 'jornada'}`
+                };
+
+                console.log('[ManualFichajeModal] Sending correction:', payload);
+
+                const res = await fetch('/api/corrections', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'DOLAPIKEY': token || '' },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({ error: 'Error desconocido' }));
+                    console.error('[ManualFichajeModal] Correction failed:', errorData);
+
+                    // Extract error message properly
+                    let errorMsg = 'Error al enviar la solicitud';
+                    if (typeof errorData === 'string') {
+                        errorMsg = errorData;
+                    } else if (errorData.error) {
+                        if (typeof errorData.error === 'string') {
+                            errorMsg = errorData.error;
+                        } else if (errorData.error.message) {
+                            errorMsg = errorData.error.message;
+                        }
+                    } else if (errorData.details) {
+                        errorMsg = errorData.details;
+                    } else if (errorData.message) {
+                        errorMsg = errorData.message;
+                    }
+
+                    // Include debug info if available
+                    if (errorData.debug) {
+                        console.error('[ManualFichajeModal] Debug info:', errorData.debug);
+                    }
+
+                    throw new Error(errorMsg);
+                }
+
+                toast.success('Solicitud enviada a revisión');
+            }
+
+            await onSaved();
+            onClose();
+        } catch (e: any) {
+            console.error('[ManualFichajeModal] Error:', e);
+            const errorMessage = e?.message || e?.toString() || 'Error inesperado al procesar la solicitud';
+            setError(errorMessage);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div
+                className="absolute inset-0 bg-[#0F172A]/40 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
+                onClick={() => !saving && onClose()}
+            />
+
+            <div className={cn(
+                "relative bg-white w-full rounded-3xl md:rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200",
+                isSimpleMode ? "max-w-md" : "max-w-2xl",
+                "max-h-[90vh] md:max-h-none"
+            )}>
+                {/* Header */}
+                <div className="p-5 md:p-8 md:pb-4 flex items-start justify-between">
+                    <div className="flex items-center gap-3 md:gap-5">
+                        <div className="p-3 md:p-4 bg-primary/5 text-primary rounded-2xl md:rounded-[1.5rem]">
+                            <History size={20} className="md:w-6 md:h-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg md:text-xl font-black text-gray-900 tracking-tight">
+                                {isSimpleMode
+                                    ? `Editar ${targetEvent?.label}`
+                                    : (user?.admin ? 'Fichaje manual' : 'Solicitar corrección')}
+                            </h3>
+                            <p className="text-[10px] md:text-sm text-gray-400 font-bold uppercase tracking-wider mt-0.5 md:mt-1">
+                                {isSimpleMode ? 'Corrección rápida' : (user?.admin ? 'Administración' : 'Revisión necesaria')}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => !saving && onClose()}
+                        className="p-1.5 md:p-2 rounded-xl hover:bg-gray-50 transition-colors"
+                    >
+                        <X className="w-5 h-5 md:w-6 md:h-6 text-gray-400" />
+                    </button>
+                </div>
+
+                {/* Form Content */}
+                <div className="flex-1 overflow-y-auto px-5 md:px-8 pb-5 md:pb-8 custom-scrollbar">
+                    {/* Info */}
+                    <div className="mb-6 md:mb-8 p-3 md:p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 flex gap-2 md:gap-3">
+                        <Info size={16} className="text-indigo-500 shrink-0 mt-0.5 md:w-[18px] md:h-[18px]" />
+                        <p className="text-xs md:text-sm text-indigo-700/80 font-medium leading-relaxed">
+                            {isSimpleMode
+                                ? `Ajusta la hora oficial de ${targetEvent?.label?.toLowerCase()} para este registro.`
+                                : (user?.admin
+                                    ? 'Inserta registros directamente en el historial de forma manual.'
+                                    : 'Tu solicitud será enviada para validación administrativa.')}
+                        </p>
+                    </div>
+
+                    <div className="space-y-8">
+                        {isSimpleMode ? (
+                            /* Simple view */
+                            <div className="space-y-6">
+                                <div className="p-6 bg-gray-50 rounded-[2rem] border border-gray-100/50">
+                                    <div className="flex items-center gap-3 mb-4 text-gray-400">
+                                        <Calendar size={16} />
+                                        <span className="text-xs font-black uppercase tracking-widest">
+                                            {format(new Date(fecha), "EEEE, d 'de' MMMM", { locale: es })}
+                                        </span>
+                                    </div>
+                                    <InputField
+                                        label={targetEvent?.label || 'Nueva hora'}
+                                        icon={<Clock size={16} />}
+                                        type="time"
+                                        value={targetEvent?.type === 'entrada' ? entrada : salida}
+                                        onChange={targetEvent?.type === 'entrada' ? setEntrada : setSalida}
+                                    />
+                                </div>
+                                {!user?.admin && (
+                                    <div className="space-y-2">
+                                        <label className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest px-1">
+                                            <MessageSquare size={14} /> Motivo del cambio
+                                        </label>
+                                        <textarea
+                                            className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-sm text-gray-900 placeholder:text-gray-300 focus:ring-2 focus:ring-primary/20 transition-all min-h-[100px] resize-none"
+                                            value={observaciones}
+                                            onChange={e => setObservaciones(e.target.value)}
+                                            placeholder="Indica el motivo de esta corrección..."
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            /* Full View */
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                                    <InputField label="Fecha" icon={<Calendar size={16} />} type="date" value={fecha} onChange={setFecha} />
+                                    <InputField label="Entrada" icon={<Clock size={16} />} type="time" value={entrada} onChange={setEntrada} />
+                                    <InputField label="Salida" icon={<Clock size={16} />} type="time" value={salida} onChange={setSalida} />
+                                </div>
+                                {!user?.admin && (
+                                    <div className="space-y-2">
+                                        <label className="flex items-center gap-2 text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest px-1">
+                                            <MessageSquare size={14} /> Observaciones
+                                        </label>
+                                        <textarea
+                                            className="w-full bg-gray-50 border-none rounded-2xl px-5 py-3 md:py-4 text-sm text-gray-900 placeholder:text-gray-300 focus:ring-2 focus:ring-primary/20 transition-all min-h-[80px] md:min-h-[100px] resize-none"
+                                            value={observaciones}
+                                            onChange={e => setObservaciones(e.target.value)}
+                                            placeholder="Motivo del cambio..."
+                                        />
+                                    </div>
+                                )}
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between px-1">
+                                        <h4 className="text-sm font-black text-gray-900 tracking-tight">Pausas</h4>
+                                        <button onClick={addPausa} className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all">
+                                            <Plus size={14} /> Añadir
+                                        </button>
+                                    </div>
+                                    {pausas.length === 0 ? (
+                                        <div className="p-8 rounded-[2rem] border-2 border-dashed border-gray-100 flex flex-col items-center justify-center">
+                                            <p className="text-xs font-bold text-gray-300 uppercase tracking-widest">Sin pausas</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {pausas.map((p, idx) => (
+                                                <div key={idx} className="bg-white border border-gray-100 rounded-[1.5rem] p-5 shadow-sm">
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <span className="text-[10px] font-black text-primary uppercase bg-primary/5 px-2 py-1 rounded-md tracking-tighter italic">Pausa #{idx + 1}</span>
+                                                        <button onClick={() => removePausa(idx)} className="p-1 text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <InputField type="time" label="Inicio" value={p.inicio} onChange={v => updatePausa(idx, { inicio: v })} compact />
+                                                        <InputField type="time" label="Fin" value={p.fin} onChange={v => updatePausa(idx, { fin: v })} compact />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    {error && (
+                        <div className="mt-8 p-4 bg-red-50 text-red-600 rounded-2xl flex items-center gap-3">
+                            <X size={18} className="shrink-0" />
+                            <p className="text-sm font-bold">{error}</p>
+                        </div>
+                    )}
+                </div>
+                <div className="p-5 md:p-8 pt-2 md:pt-4 flex gap-3 bg-white border-t border-gray-50">
+                    <button onClick={() => !saving && onClose()} className="flex-1 py-3 md:py-4 rounded-xl md:rounded-[1.2rem] border border-gray-100 text-gray-500 text-xs md:text-sm font-black uppercase tracking-widest hover:bg-gray-50 transition-all" disabled={saving}>Cancelar</button>
+                    <button onClick={submit} disabled={saving} className="flex-[2] py-3 md:py-4 rounded-xl md:rounded-[1.2rem] bg-gray-900 text-white text-xs md:text-sm font-black uppercase tracking-[0.15em] hover:bg-black shadow-lg shadow-gray-200 transition-all flex items-center justify-center gap-2 group disabled:opacity-50">
+                        {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <span>{isSimpleMode ? 'Actualizar' : (user?.admin ? 'Guardar' : 'Solicitar')}</span>}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Internal reusable field component
+const InputField = ({ label, icon, type, value, onChange, compact = false }: { label: string, icon?: React.ReactNode, type: string, value: string, onChange: (v: string) => void, compact?: boolean }) => (
+    <div className="space-y-2">
+        {!compact && (
+            <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
+                {icon} {label}
+            </label>
+        )}
+        <div className="relative group">
+            <input
+                type={type}
+                className={cn(
+                    "w-full bg-gray-50 border-none rounded-2xl px-5 transition-all focus:ring-2 focus:ring-primary/20 text-gray-900 placeholder:text-gray-300 font-bold tracking-tight",
+                    compact ? "py-2.5 text-sm h-10" : "py-3 md:py-4 text-sm md:text-base h-12 md:h-14"
+                )}
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                required
+            />
+            {compact && (
+                <span className="absolute -top-2 left-3 bg-white px-1.5 text-[9px] font-black text-gray-300 uppercase tracking-widest border border-gray-100 rounded-md">
+                    {label}
+                </span>
+            )}
+        </div>
+    </div>
+);
