@@ -38,9 +38,9 @@ export default function LoginInstallPrompt() {
 
                     <button
                         onClick={() => setIsVisible(false)}
-                        className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        className="absolute top-3 right-3 p-1.5 text-red-500 hover:text-red-700 transition-colors"
                     >
-                        <X size={16} />
+                        <X size={16} strokeWidth={3} />
                     </button>
 
                     <div className="flex items-start gap-4">
