@@ -52,13 +52,13 @@ export default function LoginInstallPrompt() {
                             <h4 className="text-sm font-bold text-gray-900 dark:text-white leading-tight mb-1">
                                 Experiencia mejorada
                             </h4>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 leading-normal mb-4">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 leading-normal mb-2">
                                 Te recomendamos instalar la App para recibir notificaciones y acceso rápido.
                             </p>
 
                             <button
                                 onClick={() => setShowModal(true)}
-                                className="flex items-center gap-2 bg-gray-50 dark:bg-zinc-800 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 active:scale-95 group/btn"
+                                className="flex items-center gap-2 bg-gray-50 dark:bg-zinc-800 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 active:scale-95 group/btn border border-red-500/30 hover:border-red-500"
                             >
                                 <span>Ver guía de instalación</span>
                                 <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
