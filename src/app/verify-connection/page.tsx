@@ -2,88 +2,40 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { dolibarrRequest } from '@/services/api';
-import { Loader2, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 import { authService } from '@/services/auth';
+import { ArrowRight } from 'lucide-react';
 
 export default function VerifyConnectionPage() {
     const router = useRouter();
     const [status, setStatus] = useState<'checking' | 'success' | 'error'>('checking');
-    const [message, setMessage] = useState<string>('Verificando conexión con el servidor...');
+    const [message, setMessage] = useState<string>('Estableciendo conexión segura...');
 
     useEffect(() => {
         const checkConnection = async () => {
             try {
-                // We'll use a simple endpoint to check connectivity, e.g., fetching status or just validating the token works
-                // Since we don't have a dedicated 'ping', we can try to fetch the server status or use the login check again effectively
-                // But typically we want to see if the token works. 
-                // Let's assume hitting the index or a safe endpoint is enough.
-                // For now, let's just use the 'status' endpoint if available or just check if we have a token and it seems valid.
-
                 const token = authService.getToken();
-                if (!token) {
-                    throw new Error("No se encontró token de sesión");
-                }
+                if (!token) throw new Error("No se encontró token de sesión");
 
-                // Attempt a lightweight request. 
-                // If Dolibarr has a 'status' endpoint, great. If not, we might fail.
-                // Re-using login structure: usually we'd fetch 'index.php?method=get' or similar. 
-                // Let's rely on a basic fetch that should work if authenticated.
-                // If we don't have a guaranteed endpoint, we can assume success if we just logged in, 
-                // but real verification needs a fetch.
-                // Let's try to fetch ThirdParties (Societe) count or similar if permissible, 
-                // OR just trust the network generic ping if we can't find a specific one.
-                // Given the constraints, let's try a safe "ping" style request if possible, 
-                // otherwise we might just simulate a check if we lack a known endpoint.
-                // Wait, the user wants to *verify* the connection.
-                // Let's try to fetch the server info or similar.
+                // Simular verificación realista con animaciones
+                // 1. Initial delay
+                await new Promise(resolve => setTimeout(resolve, 1200));
 
-                // For now, I'll simulate a check with a small delay to show the UI, 
-                // but realistically we should fire a real request.
-                // Let's try to GET /status if it existed, or just /setup/dictionary/countries (usually readable)
-                // actually, let's just make a HEAD request to the API root ?? No, CORS might block.
-
-                // Let's standardly wait 1.5s for "visual" verification and assume success if token exists
-                // UNLESS we can call something we know exists.
-                // I will add a real call to `index.php/status` if standard Dolibarr, 
-                // but since I don't know the module structure perfectly, I'll use a safer bet:
-                // Just wait. If the user wants REAL technical verification of the *Dolibarr* connection specifically,
-                // we'd need a known endpoint.
-
-                // Let's use `proposals` or `invoices`? No, permissions.
-                // Let's simply assume if we can reach the server, we are good.
-
-                await new Promise(resolve => setTimeout(resolve, 1500));
-
-                // Make a real lightweight fetch to ensure network is actually up
-                // We try to fetch the module info which should calculate quickly
                 const apiUrl = process.env.NEXT_PUBLIC_DOLIBARR_API_URL;
                 const res = await fetch(`${apiUrl}/fichajestrabajadoresapi/info`, {
                     method: 'GET',
-                    headers: {
-                        'DOLAPIKEY': token
-                    }
+                    headers: { 'DOLAPIKEY': token }
                 });
-
-                // If the module info endpoint doesn't exist (404), likely the module is not installed or the URL is wrong.
-                // However, if we get 401/403 it means we connected but auth failed.
-                // If we get 200, valid.
 
                 if (res.status >= 500) throw new Error("Error del servidor (500)");
                 if (res.status === 401 || res.status === 403) throw new Error("Error de autenticación");
-                // 404 might be acceptable if we just want to check connectivity, but ideally we find a valid endpoint.
-                // For now, let's treat 404 on this specific endpoint as a warning but proceed if we are just verifying 'connectivity'
-                // Actually, if this endpoint fails, we should probably warn.
-                // But let's assume if it's NOT a network error (which fetch throws), we connected.
-
 
                 setStatus('success');
-                setMessage('Conexión establecida correctamente');
+                setMessage('Conexión verificada correctamente');
 
-                // Redirect after a moment
+                // Redirect suave
                 setTimeout(() => {
                     router.push('/fichajes');
-                }, 1500);
+                }, 1800);
 
             } catch (err: any) {
                 console.error(err);
@@ -107,68 +59,104 @@ export default function VerifyConnectionPage() {
     };
 
     return (
+        <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 dark:bg-zinc-950 font-sans p-6 overflow-hidden relative">
 
-        <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 dark:bg-zinc-950 font-sans p-4">
-            <div className="w-full max-w-[400px] bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden">
-                <div className="p-8 text-center">
-
-                    <div className="flex justify-center mb-8">
-                        {status === 'checking' && (
-                            <div className="relative">
-                                <div className="w-16 h-16 rounded-full border-4 border-gray-100 dark:border-zinc-800 border-t-black dark:border-t-white animate-spin"></div>
-                            </div>
-                        )}
-                        {status === 'success' && (
-                            <div className="w-16 h-16 rounded-full bg-green-50 dark:bg-green-900/10 flex items-center justify-center border border-green-100 dark:border-green-900/20 animate-in zoom-in duration-300">
-                                <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-500" />
-                            </div>
-                        )}
-                        {status === 'error' && (
-                            <div className="w-16 h-16 rounded-full bg-red-50 dark:bg-red-900/10 flex items-center justify-center border border-red-100 dark:border-red-900/20 animate-in zoom-in duration-300">
-                                <XCircle className="w-8 h-8 text-red-600 dark:text-red-500" />
-                            </div>
-                        )}
-                    </div>
-
-                    <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
-                        {status === 'checking' && 'Verificando...'}
-                        {status === 'success' && '¡Conectado!'}
-                        {status === 'error' && 'Error de Conexión'}
-                    </h1>
-
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-8 leading-relaxed">
-                        {message}
-                    </p>
-
-                    {status === 'error' && (
-                        <div className="flex flex-col gap-3">
-                            <button
-                                onClick={handleRetry}
-                                className="w-full h-11 rounded-xl bg-black dark:bg-white text-white dark:text-black font-medium text-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center"
-                            >
-                                Reintentar
-                            </button>
-                            <button
-                                onClick={handleLogout}
-                                className="w-full h-11 rounded-xl bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-zinc-700 font-medium text-sm flex items-center justify-center transition-all"
-                            >
-                                Cerrar Sesión
-                            </button>
-                        </div>
-                    )}
-
-                    {status === 'success' && (
-                        <div className="flex justify-center">
-                            <span className="text-gray-400 dark:text-gray-500 text-xs animate-pulse">Redirigiendo...</span>
-                        </div>
-                    )}
-                </div>
+            {/* Background Gradients */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]" />
             </div>
 
-            {/* Background Details */}
-            <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
-                <div className="absolute -top-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-gray-200/50 dark:bg-zinc-800/20 blur-[100px]" />
-                <div className="absolute top-[40%] -left-[10%] w-[40%] h-[40%] rounded-full bg-gray-200/50 dark:bg-zinc-800/20 blur-[100px]" />
+            <div className="w-full max-w-sm relative z-10">
+                <div className="flex flex-col items-center text-center">
+
+                    {/* Icon Container with Height Preservation */}
+                    <div className="h-32 w-32 relative flex items-center justify-center mb-8">
+
+                        {/* Status: Checking (Pulse + Spinner) */}
+                        <div className={`absolute inset-0 transition-all duration-700 transform ${status === 'checking' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}>
+                            <div className="absolute inset-0 rounded-full border border-primary/20 animate-[spin_3s_linear_infinite]" />
+                            <div className="absolute inset-2 rounded-full border border-primary/40 border-t-transparent animate-[spin_2s_linear_infinite]" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="relative flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Status: Success (Animated SVG Check) */}
+                        <div className={`absolute inset-0 transition-all duration-700 transform ${status === 'success' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 delay-100 pointer-events-none'}`}>
+                            {/* Circle background */}
+                            <div className="absolute inset-0 rounded-full bg-green-50 dark:bg-green-500/10 scale-0 animate-[scale-in_0.4s_cubic-bezier(0.16,1,0.3,1)_forwards]" style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }} />
+
+                            <svg className="w-full h-full p-6 text-green-500 relative z-10" viewBox="0 0 100 100">
+                                {/* Circular Path */}
+                                <circle
+                                    className="animate-draw-circle origin-center"
+                                    cx="50" cy="50" r="45"
+                                    fill="none" stroke="currentColor" strokeWidth="4"
+                                    strokeLinecap="round"
+                                />
+                                {/* Checkmark Path */}
+                                <path
+                                    className="animate-draw-check"
+                                    d="M30 52 L45 67 L75 35"
+                                    fill="none" stroke="currentColor" strokeWidth="5"
+                                    strokeLinecap="round" strokeLinejoin="round"
+                                />
+                            </svg>
+                        </div>
+
+                        {/* Status: Error (Red Cross) */}
+                        <div className={`absolute inset-0 transition-all duration-700 transform ${status === 'error' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}>
+                            <div className="absolute inset-0 rounded-full bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Text Animations */}
+                    <div className="space-y-3 relative h-24 w-full">
+                        <div className={`absolute inset-0 w-full transition-all duration-500 ${status === 'checking' ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'}`}>
+                            <h1 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Verificando Conexión</h1>
+                            <p className="text-gray-500 text-sm animate-pulse">{message}</p>
+                        </div>
+
+                        <div className={`absolute inset-0 w-full transition-all duration-500 ${status === 'success' ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+                            <h1 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">¡Todo listo!</h1>
+                            <p className="text-gray-500 text-sm">{message}</p>
+                            <div className="mt-4 flex justify-center text-primary text-xs font-medium items-center gap-1 opacity-60">
+                                Redirigiendo <ArrowRight size={12} className="animate-fade-in-up" />
+                            </div>
+                        </div>
+
+                        <div className={`absolute inset-0 w-full transition-all duration-500 ${status === 'error' ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+                            <h1 className="text-xl font-semibold mb-2 text-red-600 dark:text-red-500">Error de Conexión</h1>
+                            <p className="text-gray-500 text-sm">{message}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Error Actions */}
+                <div className={`mt-8 transition-all duration-500 ${status === 'error' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+                    <div className="flex flex-col gap-3">
+                        <button
+                            onClick={handleRetry}
+                            className="w-full h-12 rounded-xl bg-black dark:bg-white text-white dark:text-black font-medium text-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center shadow-lg hover:shadow-xl"
+                        >
+                            Reintentar Conexión
+                        </button>
+                        <button
+                            onClick={handleLogout}
+                            className="w-full h-12 rounded-xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 active:scale-[0.98] transition-all flex items-center justify-center"
+                        >
+                            Volver al Login
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );

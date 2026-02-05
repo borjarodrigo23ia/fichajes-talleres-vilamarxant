@@ -55,8 +55,20 @@ export default function LoginPage() {
         setFormData(prev => ({ ...prev, [name]: value }));
     }
 
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+        const target = e.target;
+        // Pequeño delay para permitir que el teclado virtual se abra
+        setTimeout(() => {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Forzar cierre del teclado móvil
+        (document.activeElement as HTMLElement)?.blur();
+
         setError(null);
         setSuccess(null);
 
@@ -165,6 +177,7 @@ export default function LoginPage() {
                                         className="w-full h-11 px-4 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white/20 transition-all text-sm"
                                         value={formData.firstname}
                                         onChange={handleChange}
+                                        onFocus={handleFocus}
                                         required
                                     />
                                 </div>
@@ -177,6 +190,7 @@ export default function LoginPage() {
                                         className="w-full h-11 px-4 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white/20 transition-all text-sm"
                                         value={formData.lastname}
                                         onChange={handleChange}
+                                        onFocus={handleFocus}
                                         required
                                     />
                                 </div>
@@ -193,6 +207,7 @@ export default function LoginPage() {
                                     className="w-full h-11 px-4 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white/20 transition-all text-sm"
                                     value={formData.email}
                                     onChange={handleChange}
+                                    onFocus={handleFocus}
                                 />
                             </div>
                         )}
@@ -206,6 +221,7 @@ export default function LoginPage() {
                                 className="w-full h-11 px-4 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white/20 transition-all text-sm"
                                 value={formData.login}
                                 onChange={handleChange}
+                                onFocus={handleFocus}
                                 required
                             />
                         </div>
@@ -220,6 +236,8 @@ export default function LoginPage() {
                                     className="w-full h-11 px-4 pr-12 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white/20 transition-all text-sm"
                                     value={formData.password}
                                     onChange={handleChange}
+                                    onFocus={handleFocus}
+                                    autoComplete="new-password"
                                     required
                                 />
                                 <button
@@ -243,13 +261,13 @@ export default function LoginPage() {
                                             key={center.rowid}
                                             onClick={() => handleCenterToggle(center.rowid)}
                                             className={`flex items-center p-3 rounded-xl border cursor-pointer transition-all ${formData.center_ids.includes(center.rowid)
-                                                    ? 'bg-black/5 border-black/20 dark:bg-white/10 dark:border-white/20'
-                                                    : 'bg-gray-50 dark:bg-zinc-800/50 border-gray-200 dark:border-zinc-700 hover:border-gray-300'
+                                                ? 'bg-black/5 border-black/20 dark:bg-white/10 dark:border-white/20'
+                                                : 'bg-gray-50 dark:bg-zinc-800/50 border-gray-200 dark:border-zinc-700 hover:border-gray-300'
                                                 }`}
                                         >
                                             <div className={`w-5 h-5 rounded-md border flex items-center justify-center mr-3 transition-colors ${formData.center_ids.includes(center.rowid)
-                                                    ? 'bg-black dark:bg-white border-black dark:border-white'
-                                                    : 'border-gray-300 bg-white dark:bg-zinc-900 dark:border-zinc-600'
+                                                ? 'bg-black dark:bg-white border-black dark:border-white'
+                                                : 'border-gray-300 bg-white dark:bg-zinc-900 dark:border-zinc-600'
                                                 }`}>
                                                 {formData.center_ids.includes(center.rowid) && (
                                                     <svg className="w-3.5 h-3.5 text-white dark:text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
