@@ -339,7 +339,6 @@ export default function LoginPage() {
                         onClick={() => setShowForgotModal(false)}
                     />
                     <div className="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-[2rem] shadow-2xl p-8 text-center animate-slide-up overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-full h-1.5 bg-black dark:bg-white/20" />
                         <button
                             onClick={() => setShowForgotModal(false)}
                             className="absolute top-4 right-4 p-2 text-gray-400 hover:text-black dark:hover:text-white transition-colors"
