@@ -4,12 +4,13 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
 import Link from 'next/link';
-import { Save, ArrowLeft, Settings, User as UserIcon, MapPinned, MapPinCheck, Clock as ClockIcon, AlertCircle, ExternalLink, Check, CircleCheck, Loader2 } from 'lucide-react';
+import { Save, ArrowLeft, Settings, User as UserIcon, MapPinned, MapPinCheck, Clock as ClockIcon, AlertCircle, ExternalLink, Check, CircleCheck, Loader2, HousePlus, Palmtree, Trash2 } from 'lucide-react';
 import ShiftConfigurator from '@/components/admin/ShiftConfigurator';
 import { toast } from 'react-hot-toast';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { CustomToggle } from '@/components/ui/CustomToggle';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import VacationDaysIndividualAssign from '@/components/admin/VacationDaysIndividualAssign';
 
 interface UserData {
     id: number;
@@ -35,6 +36,7 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [availableCenters, setAvailableCenters] = useState<Center[]>([]);
+    const [initialCenters, setInitialCenters] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -60,6 +62,7 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
                     });
                     // Force update state with new object to ensure re-render
                     setConfig({ ...flatConfig });
+                    setInitialCenters(flatConfig.work_centers_ids || '');
                 }
 
                 // Fetch Centers
@@ -104,6 +107,7 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
             if (errors.length > 0) throw new Error('Error al guardar');
 
             toast.success('Configuración guardada');
+            setInitialCenters(config.work_centers_ids || '');
         } catch {
             toast.error('Error al guardar');
         } finally {
@@ -131,28 +135,50 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
 
                 <div className="max-w-2xl space-y-8">
 
-                    {/* General Settings */}
-                    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-8">
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                                <MapPinned size={20} className="text-primary" />
-                                <span>Geolocalización</span>
-                            </h3>
+                    {/* Geolocation Toggle (Compact) */}
+                    <div className="group relative bg-white p-6 rounded-[2rem] border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] flex items-center justify-between overflow-hidden transition-all hover:shadow-md">
+                        {/* Decorative Glow */}
+                        <div
+                            className={`absolute -bottom-10 -right-10 w-28 h-28 rounded-full blur-2xl transition-all duration-700 opacity-40 group-hover:opacity-70 group-hover:scale-110`}
+                            style={{
+                                backgroundColor: config.require_geolocation == '1' ? '#B6F5AE' : '#F5AEAE'
+                            }}
+                        />
 
-                            <CustomToggle
-                                label="Geolocalización Obligatoria"
-                                icon={MapPinned}
-                                value={config.require_geolocation == '1'}
-                                onChange={(val) => handleChange('require_geolocation', val ? '1' : '0')}
+                        <h3 className="relative z-10 text-sm font-bold text-gray-900 flex items-center gap-2">
+                            <MapPinned size={18} className="text-black" />
+                            <span>Geolocalización</span>
+                        </h3>
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                const newValue = config.require_geolocation == '1' ? '0' : '1';
+                                handleChange('require_geolocation', newValue);
+                                try {
+                                    const token = localStorage.getItem('dolibarr_token');
+                                    await fetch(`/api/users/${id}/config`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json', 'DOLAPIKEY': token || '' },
+                                        body: JSON.stringify({ param_name: 'require_geolocation', value: newValue })
+                                    });
+                                    toast.success('Preferencia guardada');
+                                } catch (e) {
+                                    toast.error('Error al guardar preferencia');
+                                }
+                            }}
+                            className={`relative z-10 inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${config.require_geolocation == '1' ? 'bg-[#22C55E]' : 'bg-[#EF4444]'}`}
+                        >
+                            <span
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${config.require_geolocation == '1' ? 'translate-x-5' : 'translate-x-0'}`}
                             />
-                        </div>
+                        </button>
                     </div>
 
                     {/* Work Centers Section */}
                     <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-6">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                <MapPinned size={20} className="text-primary" />
+                                <HousePlus size={20} className="text-primary" />
                                 <span>Centros de Trabajo</span>
                             </h3>
                             <Link href="/admin/centers" className="text-xs font-bold text-blue-600 hover:underline bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">
@@ -167,30 +193,66 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
                                 <div className="grid gap-3">
                                     {availableCenters
                                         .filter(center => config.work_centers_ids?.split(',').includes(center.rowid.toString()))
-                                        .map(center => (
-                                            <div
-                                                key={center.rowid}
-                                                onClick={() => {
-                                                    const currentIds = config.work_centers_ids ? config.work_centers_ids.split(',').filter(Boolean) : [];
-                                                    const newIds = currentIds.filter(id => id !== center.rowid.toString());
-                                                    handleChange('work_centers_ids', newIds.join(','));
-                                                }}
-                                                className="p-4 rounded-xl border bg-white border-gray-300 shadow-sm flex items-center justify-between cursor-pointer transition-all hover:bg-red-50 hover:border-red-200 group"
+                                        .map(center => {
+                                            const globalIndex = availableCenters.findIndex(c => c.rowid === center.rowid);
+                                            const centerColors = [
+                                                { gradient: 'from-emerald-500/40', text: 'text-emerald-700', iconBg: 'bg-emerald-50' },
+                                                { gradient: 'from-blue-500/40', text: 'text-blue-700', iconBg: 'bg-blue-50' },
+                                                { gradient: 'from-amber-500/40', text: 'text-amber-700', iconBg: 'bg-amber-50' },
+                                                { gradient: 'from-rose-500/40', text: 'text-rose-700', iconBg: 'bg-rose-50' },
+                                                { gradient: 'from-violet-500/40', text: 'text-violet-700', iconBg: 'bg-violet-50' },
+                                                { gradient: 'from-indigo-500/40', text: 'text-indigo-700', iconBg: 'bg-indigo-50' },
+                                            ];
+                                            const color = centerColors[globalIndex % centerColors.length];
+
+                                            return (
+                                                <div
+                                                    key={center.rowid}
+                                                    onClick={() => {
+                                                        const currentIds = config.work_centers_ids ? config.work_centers_ids.split(',').filter(Boolean) : [];
+                                                        const newIds = currentIds.filter(id => id !== center.rowid.toString());
+                                                        handleChange('work_centers_ids', newIds.join(','));
+                                                    }}
+                                                    className="relative overflow-hidden p-4 rounded-xl border bg-white border-gray-100 shadow-sm flex items-center justify-between cursor-pointer transition-all hover:border-red-200 group"
+                                                >
+                                                    {/* Decorative Glow */}
+                                                    <div className={`absolute bottom-0 right-0 w-24 h-24 bg-gradient-to-tl ${color.gradient} to-transparent blur-2xl rounded-tl-full opacity-100 pointer-events-none group-hover:scale-125 transition-transform duration-700`} />
+
+                                                    <div className="relative z-10 flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-black transition-colors group-hover:bg-red-50">
+                                                            <MapPinCheck size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-bold text-gray-900 leading-tight">{center.label}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="relative z-10 flex items-center">
+                                                        <div className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all hover:scale-110 active:scale-95">
+                                                            <Trash2 size={18} strokeWidth={2.5} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                    {/* Conditional Save Button for Centers */}
+                                    {initialCenters !== null && (config.work_centers_ids || '') !== initialCenters && (
+                                        <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <button
+                                                onClick={handleSave}
+                                                disabled={isSaving}
+                                                className="w-full bg-black text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-black/10 hover:bg-gray-900 hover:-translate-y-0.5 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-black group-hover:bg-red-500 group-hover:text-black transition-colors">
-                                                        <MapPinCheck size={16} />
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-sm font-bold text-gray-900">{center.label}</div>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center">
-                                                    <CircleCheck size={20} className="text-green-500 group-hover:hidden" />
-                                                    <span className="text-xs font-bold text-red-500 hidden group-hover:block">Desasignar</span>
-                                                </div>
-                                            </div>
-                                        ))}
+                                                {isSaving ? (
+                                                    <Loader2 size={16} className="animate-spin" />
+                                                ) : (
+                                                    <Save size={16} />
+                                                )}
+                                                <span>Guardar Cambios en Centros</span>
+                                            </button>
+                                        </div>
+                                    )}
+
                                     {(!config.work_centers_ids || config.work_centers_ids.split(',').filter(Boolean).length === 0) && (
                                         <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                                             <p className="text-sm text-gray-400">No hay centros asignados</p>
@@ -244,28 +306,6 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
                             </p>
                         </div>
 
-                        {/* Save Button for General Config */}
-                        <div className="pt-4">
-                            <button
-                                onClick={handleSave}
-                                disabled={isSaving}
-                                className="w-full relative group overflow-hidden bg-black text-white p-5 rounded-[1.5rem] font-bold tracking-tight shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.15)] hover:-translate-y-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-                            >
-                                <div className="relative z-10 flex items-center justify-center gap-3">
-                                    {isSaving ? (
-                                        <>
-                                            <Loader2 size={20} className="animate-spin text-white/70" />
-                                            <span>Guardando...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Save size={20} strokeWidth={2.5} />
-                                            <span>Guardar Configuración</span>
-                                        </>
-                                    )}
-                                </div>
-                            </button>
-                        </div>
                     </div>
 
                     {/* Shift Management Section */}
@@ -274,9 +314,20 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
                         <ShiftConfigurator userId={id} />
                     </div>
 
+                    {/* Vacation Days Assignment (Individual) */}
+                    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-6">
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <Palmtree size={20} className="text-primary" />
+                                <span>Vacaciones</span>
+                            </h3>
+                            <p className="text-xs text-gray-500 mt-1 font-medium">Configuración del cupo anual de días para el empleado</p>
+                        </div>
+                        <VacationDaysIndividualAssign userId={id} />
+                    </div>
                 </div>
-            </main>
+            </main >
             <MobileNav />
-        </div>
+        </div >
     );
 }

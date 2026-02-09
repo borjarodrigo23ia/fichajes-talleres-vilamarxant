@@ -42,170 +42,173 @@ export default function AdminVacationDashboard() {
         return `${day}/${month}/${year}`;
     };
 
+    const statusOptions = [
+        { id: 'pendiente', label: 'Pendientes' },
+        { id: 'aprobado', label: 'Aprobados' },
+        { id: 'rechazado', label: 'Rechazados' },
+        { id: 'all', label: 'Todos' }
+    ];
+
     const filteredRequests = requests.filter(req => {
         const matchesStatus = filterStatus === 'all' || req.estado === filterStatus;
         const matchesSearch = req.usuario.toLowerCase().includes(searchTerm.toLowerCase());
         return matchesStatus && matchesSearch;
     });
 
-    const getTypeBadge = (tipo: string) => {
+    const getTypeColor = (tipo: string) => {
         switch (tipo) {
-            case 'enfermedad':
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400">
-                        <HeartPulse size={14} />
-                        Enfermedad
-                    </span>
-                );
-            case 'asuntos_propios':
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 dark:bg-purple-900/10 text-purple-600 dark:text-purple-400">
-                        <ContactRound size={14} />
-                        Asuntos Propios
-                    </span>
-                );
-            default:
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400">
-                        <Palmtree size={14} />
-                        Vacaciones
-                    </span>
-                );
+            case 'enfermedad': return 'text-red-600 bg-red-50 dark:bg-red-900/20';
+            case 'asuntos_propios': return 'text-purple-600 bg-purple-50 dark:bg-purple-900/20';
+            default: return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20';
+        }
+    };
+
+    const getTypeLabel = (tipo: string) => {
+        switch (tipo) {
+            case 'enfermedad': return 'Baja / Enfermedad';
+            case 'asuntos_propios': return 'Asuntos Propios';
+            default: return 'Vacaciones';
         }
     };
 
     return (
         <div className="space-y-6">
-            {/* Filters */}
-            <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white dark:bg-zinc-900 p-4 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm">
-                <div className="flex bg-gray-100 dark:bg-zinc-800 p-1 rounded-xl w-full md:w-auto">
-                    <button
-                        onClick={() => setFilterStatus('pendiente')}
-                        className={`px - 4 py - 2 rounded - lg text - sm font - medium transition - all ${filterStatus === 'pendiente'
-                            ? 'bg-white dark:bg-black text-black dark:text-white shadow-sm'
-                            : 'text-gray-500 hover:text-black dark:hover:text-white'
-                            } `}
-                    >
-                        Pendientes
-                    </button>
-                    <button
-                        onClick={() => setFilterStatus('aprobado')}
-                        className={`px - 4 py - 2 rounded - lg text - sm font - medium transition - all ${filterStatus === 'aprobado'
-                            ? 'bg-white dark:bg-black text-black dark:text-white shadow-sm'
-                            : 'text-gray-500 hover:text-black dark:hover:text-white'
-                            } `}
-                    >
-                        Aprobados
-                    </button>
-                    <button
-                        onClick={() => setFilterStatus('rechazado')}
-                        className={`px - 4 py - 2 rounded - lg text - sm font - medium transition - all ${filterStatus === 'rechazado'
-                            ? 'bg-white dark:bg-black text-black dark:text-white shadow-sm'
-                            : 'text-gray-500 hover:text-black dark:hover:text-white'
-                            } `}
-                    >
-                        Rechazados
-                    </button>
-                    <button
-                        onClick={() => setFilterStatus('all')}
-                        className={`px - 4 py - 2 rounded - lg text - sm font - medium transition - all ${filterStatus === 'all'
-                            ? 'bg-white dark:bg-black text-black dark:text-white shadow-sm'
-                            : 'text-gray-500 hover:text-black dark:hover:text-white'
-                            } `}
-                    >
-                        Todos
-                    </button>
+            {/* Filters & Search */}
+            <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center bg-white dark:bg-zinc-900 p-4 rounded-3xl border border-gray-100 dark:border-zinc-800 shadow-sm">
+                <div className="w-full xl:w-auto overflow-x-auto pb-2 xl:pb-0 scrollbar-hide">
+                    <div className="flex bg-gray-100/50 dark:bg-zinc-800 p-1.5 rounded-2xl min-w-max">
+                        {statusOptions.map(opt => (
+                            <button
+                                key={opt.id}
+                                onClick={() => setFilterStatus(opt.id)}
+                                className={`
+                                    px-3 md:px-4 py-2 md:py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all duration-200 whitespace-nowrap
+                                    ${filterStatus === opt.id
+                                        ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-white shadow-sm ring-1 ring-black/5'
+                                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50'
+                                    }
+                                `}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <div className="relative w-full md:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <div className="relative w-full xl:w-72">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input
                         type="text"
-                        placeholder="Buscar usuario..."
+                        placeholder="Buscar por empleado..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-800 rounded-xl border border-transparent focus:bg-white dark:focus:bg-black focus:border-primary outline-none transition-all"
+                        className="w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-zinc-800/50 rounded-2xl border-transparent focus:bg-white dark:focus:bg-zinc-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/20 outline-none transition-all font-medium text-sm"
                     />
                 </div>
             </div>
 
-            {/* List */}
-            <div className="grid gap-4">
+            {/* Requests Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {loading ? (
-                    <div className="text-center py-10 text-gray-400">Cargando solicitudes...</div>
+                    <div className="col-span-full py-20 text-center">
+                        <div className="w-8 h-8 border-4 border-gray-200 border-t-indigo-500 rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-gray-400 font-medium">Cargando solicitudes...</p>
+                    </div>
                 ) : filteredRequests.length === 0 ? (
-                    <div className="text-center py-10 text-gray-400 bg-white dark:bg-zinc-900 rounded-3xl border border-gray-100 dark:border-zinc-800">
-                        No se encontraron solicitudes
+                    <div className="col-span-full py-20 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-dashed border-gray-200 dark:border-zinc-800">
+                        <div className="w-16 h-16 bg-gray-50 dark:bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
+                            <Calendar size={32} />
+                        </div>
+                        <p className="text-gray-500 dark:text-gray-400 font-medium">No se encontraron solicitudes</p>
                     </div>
                 ) : (
                     filteredRequests.map((req) => (
                         <div
                             key={req.rowid}
-                            className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-gray-100 dark:border-zinc-800 shadow-sm flex flex-col md:flex-row justify-between gap-6"
+                            className={`
+                                group relative bg-white dark:bg-zinc-900 rounded-3xl p-6 border transition-all duration-300 flex flex-col
+                                ${req.estado === 'pendiente'
+                                    ? 'border-indigo-100 dark:border-indigo-900/20 shadow-lg shadow-indigo-500/5 hover:shadow-indigo-500/10'
+                                    : 'border-gray-100 dark:border-zinc-800 shadow-sm hover:shadow-md'
+                                }
+                            `}
                         >
-                            <div className="flex-1 space-y-4">
+                            {/* Header */}
+                            <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-                                        <User size={20} />
+                                    <div className={`
+                                        w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-bold
+                                        ${req.estado === 'pendiente' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' : 'bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-gray-400'}
+                                    `}>
+                                        {req.usuario.charAt(0).toUpperCase()}
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-gray-900 dark:text-white">
+                                        <h4 className="font-bold text-gray-900 dark:text-white leading-tight">
                                             {req.usuario}
                                         </h4>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            Solicitado el {formatDate(req.fecha_creacion.split(' ')[0])}
+                                        <p className="text-xs text-gray-400 mt-0.5">
+                                            Solicitado: {formatDate(req.fecha_creacion.split(' ')[0])}
                                         </p>
                                     </div>
                                 </div>
+                                {req.estado === 'pendiente' && (
+                                    <span className="flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-indigo-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
+                                    </span>
+                                )}
+                            </div>
 
-                                <div className="flex items-center gap-4 text-sm flex-wrap">
-                                    {getTypeBadge(req.tipo)}
-                                    <div className="flex items-center gap-2 text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-zinc-800/50 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-zinc-800">
-                                        <Calendar size={16} className="text-gray-400" />
-                                        <span className="font-medium">{formatDate(req.fecha_inicio)}</span>
-                                        <span className="text-gray-300">➜</span>
-                                        <span className="font-medium">{formatDate(req.fecha_fin)}</span>
+                            {/* Details */}
+                            <div className="space-y-3 flex-1">
+                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold ${getTypeColor(req.tipo)}`}>
+                                    <Palmtree size={12} />
+                                    {getTypeLabel(req.tipo)}
+                                </div>
+
+                                <div className="flex items-center gap-2 bg-gray-50 dark:bg-zinc-800/50 p-3 rounded-2xl border border-gray-100 dark:border-zinc-800/50">
+                                    <div className="flex-1 text-center border-r border-gray-200 dark:border-zinc-700/50 pr-2">
+                                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Desde</div>
+                                        <div className="font-bold text-gray-900 dark:text-white text-sm">{formatDate(req.fecha_inicio)}</div>
+                                    </div>
+                                    <div className="flex-1 text-center pl-2">
+                                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Hasta</div>
+                                        <div className="font-bold text-gray-900 dark:text-white text-sm">{formatDate(req.fecha_fin)}</div>
                                     </div>
                                 </div>
 
                                 {req.comentarios && (
-                                    <div className="bg-gray-50 dark:bg-zinc-800/30 p-3 rounded-xl text-sm italic text-gray-600 dark:text-gray-300">
-                                        "{req.comentarios}"
+                                    <div className="px-3 py-2 bg-yellow-50/50 dark:bg-yellow-900/10 rounded-xl border border-yellow-100 dark:border-yellow-900/20">
+                                        <p className="text-xs text-yellow-700 dark:text-yellow-500 italic">"{req.comentarios}"</p>
                                     </div>
                                 )}
                             </div>
 
-                            <div className="flex flex-col gap-3 justify-center min-w-[150px]">
+                            {/* Actions */}
+                            <div className="mt-6 pt-6 border-t border-gray-100 dark:border-zinc-800">
                                 {req.estado === 'pendiente' ? (
-                                    <>
-                                        <button
-                                            onClick={() => handleApprove(req.rowid)}
-                                            className="flex items-center justify-center gap-2 w-full py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold text-sm hover:opacity-90 transition-all active:scale-95"
-                                        >
-                                            <Check size={16} />
-                                            Aprobar
-                                        </button>
+                                    <div className="grid grid-cols-2 gap-3">
                                         <button
                                             onClick={() => handleReject(req.rowid)}
-                                            className="flex items-center justify-center gap-2 w-full py-2.5 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-xl font-bold text-sm hover:bg-red-100 dark:hover:bg-red-900/20 transition-all active:scale-95"
+                                            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
                                         >
-                                            <X size={16} />
-                                            Rechazar
+                                            RECHAZAR
                                         </button>
-                                    </>
-                                ) : (
-                                    <div className={`text - center py - 2 rounded - xl font - bold text - sm ${req.estado === 'aprobado'
-                                        ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
-                                        : 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400'
-                                        } `}>
-                                        {req.estado === 'aprobado' ? 'Aprobada' : 'Rechazada'}
+                                        <button
+                                            onClick={() => handleApprove(req.rowid)}
+                                            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-gray-900 hover:bg-black dark:bg-white dark:text-black dark:hover:bg-gray-200 transition-colors shadow-lg shadow-gray-900/10"
+                                        >
+                                            APROBAR
+                                        </button>
                                     </div>
-                                )}
-
-                                {req.aprobado_por && (
-                                    <p className="text-xs text-center text-gray-400">
-                                        por {req.aprobado_por}
-                                    </p>
+                                ) : (
+                                    <div className={`w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-bold ${req.estado === 'aprobado'
+                                        ? 'bg-green-50 text-green-600 dark:bg-green-900/10 dark:text-green-400'
+                                        : 'bg-red-50 text-red-600 dark:bg-red-900/10 dark:text-red-400'
+                                        }`}>
+                                        {req.estado === 'aprobado' ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                                        {req.estado === 'aprobado' ? 'SOLICITUD APROBADA' : 'SOLICITUD RECHAZADA'}
+                                    </div>
                                 )}
                             </div>
                         </div>

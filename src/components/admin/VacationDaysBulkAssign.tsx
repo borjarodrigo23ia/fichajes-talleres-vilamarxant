@@ -184,8 +184,8 @@ export default function VacationDaysBulkAssign() {
                                     <label
                                         key={user.id}
                                         className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all ${isSelected
-                                                ? 'bg-primary/10 border-2 border-primary'
-                                                : 'bg-white dark:bg-zinc-900 border-2 border-transparent hover:bg-gray-50 dark:hover:bg-zinc-800'
+                                            ? 'bg-primary/10 border-2 border-primary'
+                                            : 'bg-white dark:bg-zinc-900 border-2 border-transparent hover:bg-gray-50 dark:hover:bg-zinc-800'
                                             }`}
                                     >
                                         <input

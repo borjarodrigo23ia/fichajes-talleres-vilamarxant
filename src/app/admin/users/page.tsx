@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { DolibarrUser } from '@/lib/admin-types';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
-import VacationDaysBulkAssign from '@/components/admin/VacationDaysBulkAssign';
 import Link from 'next/link';
 import { Settings, Search, CirclePower, Coffee, LogOut, Users, ChevronRight } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -143,8 +142,6 @@ export default function AdminUsersPage() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-
-                <VacationDaysBulkAssign />
 
                 {loading ? (
                     <div className="flex items-center justify-center py-20">

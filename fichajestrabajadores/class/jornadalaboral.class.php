@@ -18,84 +18,54 @@
 /**
  *  \file       htdocs/custom/fichajestrabajadores/class/jornadalaboral.class.php
  *  \ingroup    fichajestrabajadores
- *  \brief      Clase para gestionar jornadas laborales de trabajadores
+ *  \brief      Clase para gestionar jornadas laborales (horarios habituales) de trabajadores
  */
 
 require_once DOL_DOCUMENT_ROOT . '/core/lib/functions.lib.php';
+require_once DOL_DOCUMENT_ROOT . '/user/class/user.class.php';
 
 /**
- * Clase para gestionar jornadas laborales de trabajadores
+ * Clase para gestionar jornadas laborales (horarios habituales)
  */
 class JornadaLaboral
 {
-    /**
-     * @var DoliDB Database handler
-     */
+    /** @var DoliDB */
     public $db;
 
-    /**
-     * @var string Error code (or message)
-     */
+    /** @var string */
     public $error;
 
-    /**
-     * @var array Errors
-     */
+    /** @var array */
     public $errors = array();
 
-    /**
-     * @var string ID
-     */
+    /** @var int ID de jornada */
     public $id;
 
-    /**
-     * @var int ID del usuario/trabajador
-     */
+    /** @var int ID del usuario */
     public $fk_user;
 
-    /**
-     * @var string Tipo de jornada (intensiva/partida)
-     */
+    /** @var string Tipo de jornada: intensiva o partida */
     public $tipo_jornada;
 
-    /**
-     * @var string Tipo de turno (fijo/rotativo)
-     */
+    /** @var string Tipo de turno: fijo o rotativo */
     public $tipo_turno;
 
-    /**
-     * @var string Hora de inicio de jornada
-     */
+    /** @var string Hora inicio jornada (HH:MM:SS) */
     public $hora_inicio_jornada;
 
-    /**
-     * @var string Hora de inicio de pausa
-     */
-    public $hora_inicio_pausa;
-
-    /**
-     * @var string Hora de fin de pausa
-     */
-    public $hora_fin_pausa;
-
-    /**
-     * @var string Hora de fin de jornada
-     */
+    /** @var string Hora fin jornada (HH:MM:SS) */
     public $hora_fin_jornada;
 
-    /**
-     * @var string Observaciones
-     */
+    /** @var array Array of break periods */
+    public $pausas = array();
+
+    /** @var string Observaciones */
     public $observaciones;
 
-    /**
-     * @var int Fecha de creación
-     */
+    /** @var int Timestamp fecha de creación */
     public $fecha_creacion;
 
-    /**
-     * @var int Estado activo
-     */
+    /** @var int Estado activo */
     public $active;
 
     /**
@@ -109,387 +79,356 @@ class JornadaLaboral
     }
 
     /**
-     * Crea un registro de jornada laboral en la base de datos
+     * Crear una jornada laboral
      *
-     * @param int $user_id ID del usuario
-     * @param array $data Datos de la jornada laboral
-     * @return int <0 si error, >0 si ok
+     * @param int   $fk_user ID de usuario
+     * @param array $data    Datos de la jornada
+     * @return int           ID de jornada (>0) o <0 si error
      */
-    public function create($user_id, $data)
+    public function create($fk_user, $data = array())
     {
-        global $conf, $user;
-
-        $error = 0;
-
-        dol_syslog("JornadaLaboral::create - Iniciando creación de jornada laboral", LOG_DEBUG);
-
-        // Limpiar los errores previos
         $this->errors = array();
-        
-        // Validar datos requeridos
-        if (empty($user_id)) {
-            $this->errors[] = 'ID de usuario requerido';
-            return -1;
-        }
+        $this->error = '';
 
-        if (empty($data['tipo_jornada']) || 
-            empty($data['tipo_turno']) || 
-            empty($data['hora_inicio_jornada']) || 
-            empty($data['hora_fin_jornada'])) {
-            $this->errors[] = 'Faltan campos obligatorios';
-            return -1;
-        }
-
-        // Validar tipo de jornada
-        $tipos_jornada = array('intensiva', 'partida');
-        if (!in_array($data['tipo_jornada'], $tipos_jornada)) {
-            $this->errors[] = 'Tipo de jornada no válido: ' . $data['tipo_jornada'];
-            return -1;
-        }
-
-        // Validar tipo de turno
-        $tipos_turno = array('fijo', 'rotativo');
-        if (!in_array($data['tipo_turno'], $tipos_turno)) {
-            $this->errors[] = 'Tipo de turno no válido: ' . $data['tipo_turno'];
-            return -1;
-        }
-
-        // Preparar datos
-        $this->fk_user = $user_id;
-        $this->tipo_jornada = $data['tipo_jornada'];
-        $this->tipo_turno = $data['tipo_turno'];
-        $this->hora_inicio_jornada = $data['hora_inicio_jornada'];
-        $this->hora_inicio_pausa = $data['hora_inicio_pausa'];
-        $this->hora_fin_pausa = $data['hora_fin_pausa'];
-        $this->hora_fin_jornada = $data['hora_fin_jornada'];
-        $this->observaciones = $data['observaciones'];
+        $this->fk_user = (int) $fk_user;
+        $this->tipo_jornada = isset($data['tipo_jornada']) ? $data['tipo_jornada'] : 'partida';
+        $this->tipo_turno = isset($data['tipo_turno']) ? $data['tipo_turno'] : 'fijo';
+        $this->hora_inicio_jornada = isset($data['hora_inicio_jornada']) ? $data['hora_inicio_jornada'] : null;
+        $this->hora_fin_jornada = isset($data['hora_fin_jornada']) ? $data['hora_fin_jornada'] : null;
+        $this->observaciones = isset($data['observaciones']) ? $data['observaciones'] : null;
         $this->active = 1;
 
-        // Preparar la consulta SQL
-        $sql = "INSERT INTO " . MAIN_DB_PREFIX . "jornadas_laborales (";
-        $sql .= " fk_user,";
-        $sql .= " tipo_jornada,";
-        $sql .= " tipo_turno,";
-        $sql .= " hora_inicio_jornada,";
-        $sql .= " hora_fin_jornada";
-        
-        if (!empty($this->hora_inicio_pausa)) {
-            $sql .= ", hora_inicio_pausa";
+        // Get pausas array if provided
+        $pausas = isset($data['pausas']) && is_array($data['pausas']) ? $data['pausas'] : array();
+
+        if (empty($this->fk_user)) {
+            $this->errors[] = 'Usuario no especificado';
+            return -1;
         }
-        
-        if (!empty($this->hora_fin_pausa)) {
-            $sql .= ", hora_fin_pausa";
+        if (empty($this->hora_inicio_jornada) || empty($this->hora_fin_jornada)) {
+            $this->errors[] = 'Faltan datos obligatorios para la jornada';
+            return -2;
         }
-        
-        if (!empty($this->observaciones)) {
-            $sql .= ", observaciones";
-        }
-        
-        $sql .= ", active";
-        $sql .= ") VALUES (";
-        $sql .= " " . $this->fk_user . ",";
-        $sql .= " '" . $this->db->escape($this->tipo_jornada) . "',";
-        $sql .= " '" . $this->db->escape($this->tipo_turno) . "',";
-        $sql .= " '" . $this->db->escape($this->hora_inicio_jornada) . "',";
-        $sql .= " '" . $this->db->escape($this->hora_fin_jornada) . "'";
-        
-        if (!empty($this->hora_inicio_pausa)) {
-            $sql .= ", '" . $this->db->escape($this->hora_inicio_pausa) . "'";
-        }
-        
-        if (!empty($this->hora_fin_pausa)) {
-            $sql .= ", '" . $this->db->escape($this->hora_fin_pausa) . "'";
-        }
-        
-        if (!empty($this->observaciones)) {
-            $sql .= ", '" . $this->db->escape($this->observaciones) . "'";
-        }
-        
-        $sql .= ", " . $this->active;
+
+        $this->db->begin();
+
+        // Insert main shift record
+        $sql = "INSERT INTO " . MAIN_DB_PREFIX . "jornadas_laborales(";
+        $sql .= "fk_user, tipo_jornada, tipo_turno, hora_inicio_jornada, hora_fin_jornada, observaciones, active";
+        $sql .= ") VALUES(";
+        $sql .= (int) $this->fk_user . ",";
+        $sql .= "'" . $this->db->escape($this->tipo_jornada) . "',";
+        $sql .= "'" . $this->db->escape($this->tipo_turno) . "',";
+        $sql .= "'" . $this->db->escape($this->hora_inicio_jornada) . "',";
+        $sql .= "'" . $this->db->escape($this->hora_fin_jornada) . "',";
+        $sql .= ($this->observaciones ? "'" . $this->db->escape($this->observaciones) . "'" : "NULL") . ",";
+        $sql .= "1";
         $sql .= ")";
 
-        $this->db->begin();
-        
-        dol_syslog("JornadaLaboral::create - SQL: " . $sql, LOG_DEBUG);
-        
+        dol_syslog(__METHOD__ . " - SQL: " . $sql, LOG_DEBUG);
+
         $resql = $this->db->query($sql);
         if (!$resql) {
-            $error++;
-            $this->errors[] = "Error al insertar en la base de datos: " . $this->db->lasterror();
-            dol_syslog("JornadaLaboral::create - Error: " . $this->db->lasterror(), LOG_ERR);
-        }
-        
-        if (!$error) {
-            $this->id = $this->db->last_insert_id(MAIN_DB_PREFIX . "jornadas_laborales");
-            
-            $this->db->commit();
-            return $this->id;
-        } else {
+            $this->error = "Error al insertar registro: " . $this->db->lasterror();
+            $this->errors[] = $this->error;
             $this->db->rollback();
-            return -1 * $error;
+            return -3;
         }
+
+        $this->id = $this->db->last_insert_id(MAIN_DB_PREFIX . "jornadas_laborales");
+
+        // Insert break periods if provided
+        if (!empty($pausas)) {
+            foreach ($pausas as $index => $pausa) {
+                if (empty($pausa['hora_inicio']) || empty($pausa['hora_fin'])) {
+                    continue; // Skip invalid breaks
+                }
+
+                $descripcion = isset($pausa['descripcion']) ? $pausa['descripcion'] : '';
+                $orden = isset($pausa['orden']) ? (int) $pausa['orden'] : $index;
+
+                $sqlPausa = "INSERT INTO " . MAIN_DB_PREFIX . "jornadas_pausas(";
+                $sqlPausa .= "fk_jornada, hora_inicio, hora_fin, descripcion, orden";
+                $sqlPausa .= ") VALUES(";
+                $sqlPausa .= (int) $this->id . ",";
+                $sqlPausa .= "'" . $this->db->escape($pausa['hora_inicio']) . "',";
+                $sqlPausa .= "'" . $this->db->escape($pausa['hora_fin']) . "',";
+                $sqlPausa .= ($descripcion ? "'" . $this->db->escape($descripcion) . "'" : "NULL") . ",";
+                $sqlPausa .= $orden;
+                $sqlPausa .= ")";
+
+                $resPausa = $this->db->query($sqlPausa);
+                if (!$resPausa) {
+                    $this->error = "Error al insertar pausa: " . $this->db->lasterror();
+                    $this->errors[] = $this->error;
+                    $this->db->rollback();
+                    return -4;
+                }
+            }
+        }
+
+        $this->db->commit();
+        return $this->id;
     }
 
     /**
-     * Actualiza un registro de jornada laboral en la base de datos
+     * Cargar una jornada laboral
      *
-     * @param int $id ID de la jornada a actualizar
-     * @param array $data Datos de la jornada laboral
-     * @return int <0 si error, >0 si ok
-     */
-    public function update($id, $data)
-    {
-        global $conf, $user;
-
-        $error = 0;
-
-        dol_syslog("JornadaLaboral::update - Iniciando actualización de jornada laboral ID: " . $id, LOG_DEBUG);
-
-        // Limpiar los errores previos
-        $this->errors = array();
-        
-        // Validar ID
-        if (empty($id)) {
-            $this->errors[] = 'ID de jornada requerido';
-            return -1;
-        }
-
-        // Preparar la consulta SQL
-        $sql = "UPDATE " . MAIN_DB_PREFIX . "jornadas_laborales SET";
-        
-        $update_fields = array();
-        
-        if (isset($data['fk_user']) && !empty($data['fk_user'])) {
-            $update_fields[] = " fk_user = " . (int)$data['fk_user'];
-        }
-        
-        if (isset($data['tipo_jornada']) && !empty($data['tipo_jornada'])) {
-            // Validar tipo de jornada
-            $tipos_jornada = array('intensiva', 'partida');
-            if (!in_array($data['tipo_jornada'], $tipos_jornada)) {
-                $this->errors[] = 'Tipo de jornada no válido: ' . $data['tipo_jornada'];
-                return -1;
-            }
-            $update_fields[] = " tipo_jornada = '" . $this->db->escape($data['tipo_jornada']) . "'";
-        }
-        
-        if (isset($data['tipo_turno']) && !empty($data['tipo_turno'])) {
-            // Validar tipo de turno
-            $tipos_turno = array('fijo', 'rotativo');
-            if (!in_array($data['tipo_turno'], $tipos_turno)) {
-                $this->errors[] = 'Tipo de turno no válido: ' . $data['tipo_turno'];
-                return -1;
-            }
-            $update_fields[] = " tipo_turno = '" . $this->db->escape($data['tipo_turno']) . "'";
-        }
-        
-        if (isset($data['hora_inicio_jornada']) && !empty($data['hora_inicio_jornada'])) {
-            $update_fields[] = " hora_inicio_jornada = '" . $this->db->escape($data['hora_inicio_jornada']) . "'";
-        }
-        
-        if (isset($data['hora_inicio_pausa'])) {
-            if (empty($data['hora_inicio_pausa'])) {
-                $update_fields[] = " hora_inicio_pausa = NULL";
-            } else {
-                $update_fields[] = " hora_inicio_pausa = '" . $this->db->escape($data['hora_inicio_pausa']) . "'";
-            }
-        }
-        
-        if (isset($data['hora_fin_pausa'])) {
-            if (empty($data['hora_fin_pausa'])) {
-                $update_fields[] = " hora_fin_pausa = NULL";
-            } else {
-                $update_fields[] = " hora_fin_pausa = '" . $this->db->escape($data['hora_fin_pausa']) . "'";
-            }
-        }
-        
-        if (isset($data['hora_fin_jornada']) && !empty($data['hora_fin_jornada'])) {
-            $update_fields[] = " hora_fin_jornada = '" . $this->db->escape($data['hora_fin_jornada']) . "'";
-        }
-        
-        if (isset($data['observaciones'])) {
-            $update_fields[] = " observaciones = '" . $this->db->escape($data['observaciones']) . "'";
-        }
-        
-        if (isset($data['active'])) {
-            $update_fields[] = " active = " . (int)$data['active'];
-        }
-        
-        // Si no hay campos para actualizar, retornar error
-        if (empty($update_fields)) {
-            $this->errors[] = 'No hay campos para actualizar';
-            return -1;
-        }
-        
-        $sql .= implode(',', $update_fields);
-        $sql .= " WHERE rowid = " . (int)$id;
-
-        $this->db->begin();
-        
-        dol_syslog("JornadaLaboral::update - SQL: " . $sql, LOG_DEBUG);
-        
-        $resql = $this->db->query($sql);
-        if (!$resql) {
-            $error++;
-            $this->errors[] = "Error al actualizar en la base de datos: " . $this->db->lasterror();
-            dol_syslog("JornadaLaboral::update - Error: " . $this->db->lasterror(), LOG_ERR);
-        }
-        
-        if (!$error) {
-            $this->db->commit();
-            return 1;
-        } else {
-            $this->db->rollback();
-            return -1 * $error;
-        }
-    }
-
-    /**
-     * Elimina un registro de jornada laboral de la base de datos
-     *
-     * @param int $id ID de la jornada a eliminar
-     * @return int <0 si error, >0 si ok
-     */
-    public function delete($id)
-    {
-        global $conf, $user;
-
-        $error = 0;
-
-        dol_syslog("JornadaLaboral::delete - Iniciando eliminación de jornada laboral ID: " . $id, LOG_DEBUG);
-
-        // Limpiar los errores previos
-        $this->errors = array();
-        
-        // Validar ID
-        if (empty($id)) {
-            $this->errors[] = 'ID de jornada requerido';
-            return -1;
-        }
-
-        // Preparar la consulta SQL
-        $sql = "DELETE FROM " . MAIN_DB_PREFIX . "jornadas_laborales";
-        $sql .= " WHERE rowid = " . (int)$id;
-
-        $this->db->begin();
-        
-        dol_syslog("JornadaLaboral::delete - SQL: " . $sql, LOG_DEBUG);
-        
-        $resql = $this->db->query($sql);
-        if (!$resql) {
-            $error++;
-            $this->errors[] = "Error al eliminar de la base de datos: " . $this->db->lasterror();
-            dol_syslog("JornadaLaboral::delete - Error: " . $this->db->lasterror(), LOG_ERR);
-        }
-        
-        if (!$error) {
-            $this->db->commit();
-            return 1;
-        } else {
-            $this->db->rollback();
-            return -1 * $error;
-        }
-    }
-
-    /**
-     * Carga una jornada laboral desde la base de datos
-     *
-     * @param int $id ID de la jornada a cargar
-     * @return int <0 si error, >0 si ok
+     * @param int $id ID de jornada
+     * @return int    1 si ok, 0 si no encontrada, <0 si error
      */
     public function fetch($id)
     {
-        $sql = "SELECT * FROM " . MAIN_DB_PREFIX . "jornadas_laborales WHERE rowid = " . (int)$id;
-        
-        dol_syslog("JornadaLaboral::fetch - SQL: " . $sql, LOG_DEBUG);
-        
+        $sql = "SELECT j.*";
+        $sql .= " FROM " . MAIN_DB_PREFIX . "jornadas_laborales as j";
+        $sql .= " WHERE j.rowid = " . ((int) $id);
+
+        dol_syslog(__METHOD__ . " - SQL: " . $sql, LOG_DEBUG);
+
         $resql = $this->db->query($sql);
-        if ($resql) {
-            if ($this->db->num_rows($resql)) {
-                $obj = $this->db->fetch_object($resql);
-                
-                $this->id = $obj->rowid;
-                $this->fk_user = $obj->fk_user;
-                $this->tipo_jornada = $obj->tipo_jornada;
-                $this->tipo_turno = $obj->tipo_turno;
-                $this->hora_inicio_jornada = $obj->hora_inicio_jornada;
-                $this->hora_inicio_pausa = $obj->hora_inicio_pausa;
-                $this->hora_fin_pausa = $obj->hora_fin_pausa;
-                $this->hora_fin_jornada = $obj->hora_fin_jornada;
-                $this->observaciones = $obj->observaciones;
-                $this->fecha_creacion = $obj->fecha_creacion;
-                $this->active = $obj->active;
-                
-                $this->db->free($resql);
-                return 1;
-            } else {
-                $this->db->free($resql);
-                $this->errors[] = 'Jornada laboral no encontrada';
-                return 0;
-            }
-        } else {
-            $this->errors[] = "Error al consultar la base de datos: " . $this->db->lasterror();
-            dol_syslog("JornadaLaboral::fetch - Error: " . $this->db->lasterror(), LOG_ERR);
+        if (!$resql) {
+            $this->error = "Error al leer datos: " . $this->db->lasterror();
             return -1;
         }
+
+        if (!$this->db->num_rows($resql)) {
+            $this->db->free($resql);
+            return 0;
+        }
+
+        $obj = $this->db->fetch_object($resql);
+
+        $this->id = $obj->rowid;
+        $this->fk_user = $obj->fk_user;
+        $this->tipo_jornada = $obj->tipo_jornada;
+        $this->tipo_turno = $obj->tipo_turno;
+        $this->hora_inicio_jornada = $obj->hora_inicio_jornada;
+        $this->hora_fin_jornada = $obj->hora_fin_jornada;
+        $this->observaciones = $obj->observaciones;
+        $this->fecha_creacion = $this->db->jdate($obj->fecha_creacion);
+        $this->active = $obj->active;
+
+        $this->db->free($resql);
+
+        // Fetch break periods
+        $this->pausas = array();
+        $sqlPausas = "SELECT rowid, hora_inicio, hora_fin, descripcion, orden";
+        $sqlPausas .= " FROM " . MAIN_DB_PREFIX . "jornadas_pausas";
+        $sqlPausas .= " WHERE fk_jornada = " . ((int) $this->id);
+        $sqlPausas .= " ORDER BY orden ASC, hora_inicio ASC";
+
+        $resPausas = $this->db->query($sqlPausas);
+        if ($resPausas) {
+            while ($objPausa = $this->db->fetch_object($resPausas)) {
+                $this->pausas[] = array(
+                    'id' => $objPausa->rowid,
+                    'hora_inicio' => $objPausa->hora_inicio,
+                    'hora_fin' => $objPausa->hora_fin,
+                    'descripcion' => $objPausa->descripcion,
+                    'orden' => $objPausa->orden
+                );
+            }
+            $this->db->free($resPausas);
+        }
+
+        return 1;
     }
 
     /**
-     * Obtiene todas las jornadas laborales o las de un usuario específico
+     * Actualizar una jornada laboral
      *
-     * @param int $user_id ID del usuario (opcional)
-     * @return array|int Array con las jornadas o <0 si error
+     * @param int   $id   ID de jornada
+     * @param array $data Datos a actualizar
+     * @return int        >0 si ok, <0 si error
+     */
+    public function update($id, $data = array())
+    {
+        $this->errors = array();
+        $this->error = '';
+
+        $res = $this->fetch($id);
+        if ($res <= 0) {
+            $this->errors[] = 'Jornada no encontrada';
+            return -1;
+        }
+
+        $this->db->begin();
+
+        // Build UPDATE for main table
+        $update = array();
+
+        if (isset($data['tipo_jornada'])) {
+            $update[] = "tipo_jornada = '" . $this->db->escape($data['tipo_jornada']) . "'";
+        }
+        if (isset($data['tipo_turno'])) {
+            $update[] = "tipo_turno = '" . $this->db->escape($data['tipo_turno']) . "'";
+        }
+        if (isset($data['hora_inicio_jornada'])) {
+            $update[] = "hora_inicio_jornada = '" . $this->db->escape($data['hora_inicio_jornada']) . "'";
+        }
+        if (isset($data['hora_fin_jornada'])) {
+            $update[] = "hora_fin_jornada = '" . $this->db->escape($data['hora_fin_jornada']) . "'";
+        }
+        if (array_key_exists('observaciones', $data)) {
+            $update[] = "observaciones = " . ($data['observaciones'] !== null && $data['observaciones'] !== '' ? "'" . $this->db->escape($data['observaciones']) . "'" : "NULL");
+        }
+
+        if (!empty($update)) {
+            $sql = "UPDATE " . MAIN_DB_PREFIX . "jornadas_laborales SET ";
+            $sql .= implode(', ', $update);
+            $sql .= " WHERE rowid = " . ((int) $id);
+
+            dol_syslog(__METHOD__ . " - update SQL: " . $sql, LOG_DEBUG);
+
+            $resql = $this->db->query($sql);
+            if (!$resql) {
+                $this->error = "Error al actualizar jornada: " . $this->db->lasterror();
+                $this->errors[] = $this->error;
+                $this->db->rollback();
+                return -2;
+            }
+        }
+
+        // Update break periods if provided
+        if (isset($data['pausas']) && is_array($data['pausas'])) {
+            // Delete all existing breaks for this shift
+            $sqlDel = "DELETE FROM " . MAIN_DB_PREFIX . "jornadas_pausas WHERE fk_jornada = " . ((int) $id);
+            $this->db->query($sqlDel);
+
+            // Insert new breaks
+            foreach ($data['pausas'] as $index => $pausa) {
+                if (empty($pausa['hora_inicio']) || empty($pausa['hora_fin'])) {
+                    continue;
+                }
+
+                $descripcion = isset($pausa['descripcion']) ? $pausa['descripcion'] : '';
+                $orden = isset($pausa['orden']) ? (int) $pausa['orden'] : $index;
+
+                $sqlPausa = "INSERT INTO " . MAIN_DB_PREFIX . "jornadas_pausas(";
+                $sqlPausa .= "fk_jornada, hora_inicio, hora_fin, descripcion, orden";
+                $sqlPausa .= ") VALUES(";
+                $sqlPausa .= (int) $id . ",";
+                $sqlPausa .= "'" . $this->db->escape($pausa['hora_inicio']) . "',";
+                $sqlPausa .= "'" . $this->db->escape($pausa['hora_fin']) . "',";
+                $sqlPausa .= ($descripcion ? "'" . $this->db->escape($descripcion) . "'" : "NULL") . ",";
+                $sqlPausa .= $orden;
+                $sqlPausa .= ")";
+
+                $resPausa = $this->db->query($sqlPausa);
+                if (!$resPausa) {
+                    $this->error = "Error al insertar pausa: " . $this->db->lasterror();
+                    $this->errors[] = $this->error;
+                    $this->db->rollback();
+                    return -3;
+                }
+            }
+        }
+
+        $this->db->commit();
+        return 1;
+    }
+
+    /**
+     * Eliminar una jornada laboral
+     *
+     * @param int $id ID de jornada
+     * @return int    >0 si ok, <0 si error
+     */
+    public function delete($id)
+    {
+        $this->errors = array();
+        $this->error = '';
+
+        $res = $this->fetch($id);
+        if ($res <= 0) {
+            $this->errors[] = 'Jornada no encontrada';
+            return -1;
+        }
+
+        $this->db->begin();
+
+        // Breaks will be deleted automatically by CASCADE constraint
+        $sql = "DELETE FROM " . MAIN_DB_PREFIX . "jornadas_laborales";
+        $sql .= " WHERE rowid = " . ((int) $id);
+
+        dol_syslog(__METHOD__ . " - SQL: " . $sql, LOG_DEBUG);
+
+        $resql = $this->db->query($sql);
+        if (!$resql) {
+            $this->error = "Error al eliminar jornada: " . $this->db->lasterror();
+            $this->errors[] = $this->error;
+            $this->db->rollback();
+            return -2;
+        }
+
+        $this->db->commit();
+        return 1;
+    }
+
+    /**
+     * Devuelve listado de jornadas laborales
+     *
+     * @param int $user_id ID usuario (opcional)
+     * @return array|int   Array de jornadas o <0 si error
      */
     public function getAllJornadas($user_id = 0)
     {
-        $jornadas = array();
-        
-        $sql = "SELECT j.*, u.firstname, u.lastname, u.login";
+        $sql = "SELECT j.rowid, j.fk_user, j.tipo_jornada, j.tipo_turno,";
+        $sql .= " j.hora_inicio_jornada, j.hora_fin_jornada, j.observaciones, j.fecha_creacion, j.active";
         $sql .= " FROM " . MAIN_DB_PREFIX . "jornadas_laborales as j";
-        $sql .= " LEFT JOIN " . MAIN_DB_PREFIX . "user as u ON j.fk_user = u.rowid";
-        $sql .= " WHERE 1=1";
-        
+        $sql .= " WHERE j.active = 1";
         if ($user_id > 0) {
-            $sql .= " AND j.fk_user = " . (int)$user_id;
+            $sql .= " AND j.fk_user = " . ((int) $user_id);
         }
-        
-        $sql .= " ORDER BY j.fk_user, j.rowid DESC";
-        
-        dol_syslog("JornadaLaboral::getAllJornadas - SQL: " . $sql, LOG_DEBUG);
-        
+        $sql .= " ORDER BY j.rowid DESC";
+
+        dol_syslog(__METHOD__ . " - SQL: " . $sql, LOG_DEBUG);
+
         $resql = $this->db->query($sql);
-        if ($resql) {
-            $num = $this->db->num_rows($resql);
-            $i = 0;
-            
-            while ($i < $num) {
-                $obj = $this->db->fetch_object($resql);
-                
-                $jornada = array(
-                    'id' => $obj->rowid,
-                    'fk_user' => $obj->fk_user,
-                    'nombre_usuario' => trim($obj->firstname . ' ' . $obj->lastname) . ' (' . $obj->login . ')',
-                    'tipo_jornada' => $obj->tipo_jornada,
-                    'tipo_turno' => $obj->tipo_turno,
-                    'hora_inicio_jornada' => $obj->hora_inicio_jornada,
-                    'hora_inicio_pausa' => $obj->hora_inicio_pausa,
-                    'hora_fin_pausa' => $obj->hora_fin_pausa,
-                    'hora_fin_jornada' => $obj->hora_fin_jornada,
-                    'observaciones' => $obj->observaciones,
-                    'fecha_creacion' => $obj->fecha_creacion,
-                    'active' => $obj->active
-                );
-                
-                $jornadas[] = $jornada;
-                $i++;
-            }
-            
-            $this->db->free($resql);
-            return $jornadas;
-        } else {
-            $this->errors[] = "Error al consultar la base de datos: " . $this->db->lasterror();
-            dol_syslog("JornadaLaboral::getAllJornadas - Error: " . $this->db->lasterror(), LOG_ERR);
+        if (!$resql) {
+            $this->error = $this->db->lasterror();
             return -1;
         }
+
+        $ret = array();
+        while ($obj = $this->db->fetch_object($resql)) {
+            $jornada = array(
+                'id' => $obj->rowid,
+                'fk_user' => $obj->fk_user,
+                'tipo_jornada' => $obj->tipo_jornada,
+                'tipo_turno' => $obj->tipo_turno,
+                'hora_inicio_jornada' => $obj->hora_inicio_jornada,
+                'hora_fin_jornada' => $obj->hora_fin_jornada,
+                'observaciones' => $obj->observaciones,
+                'fecha_creacion' => $obj->fecha_creacion,
+                'active' => $obj->active,
+                'pausas' => array()
+            );
+
+            // Fetch breaks for this shift
+            $sqlPausas = "SELECT rowid, hora_inicio, hora_fin, descripcion, orden";
+            $sqlPausas .= " FROM " . MAIN_DB_PREFIX . "jornadas_pausas";
+            $sqlPausas .= " WHERE fk_jornada = " . ((int) $obj->rowid);
+            $sqlPausas .= " ORDER BY orden ASC, hora_inicio ASC";
+
+            $resPausas = $this->db->query($sqlPausas);
+            if ($resPausas) {
+                while ($objPausa = $this->db->fetch_object($resPausas)) {
+                    $jornada['pausas'][] = array(
+                        'id' => $objPausa->rowid,
+                        'hora_inicio' => $objPausa->hora_inicio,
+                        'hora_fin' => $objPausa->hora_fin,
+                        'descripcion' => $objPausa->descripcion,
+                        'orden' => $objPausa->orden
+                    );
+                }
+                $this->db->free($resPausas);
+            }
+
+            $ret[] = $jornada;
+        }
+        $this->db->free($resql);
+
+        return $ret;
     }
-} 
+}
