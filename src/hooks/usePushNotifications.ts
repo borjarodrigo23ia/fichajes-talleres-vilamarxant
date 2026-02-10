@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
 
@@ -34,14 +34,8 @@ export default function PushNotificationManager() {
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [permission, setPermission] = useState<NotificationPermission>('default');
 
-    useEffect(() => {
-        if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
-            setPermission(Notification.permission);
-            checkSubscription();
-        }
-    }, [user]);
 
-    const checkSubscription = async () => {
+    const checkSubscription = useCallback(async () => {
         if (!user) return;
 
         try {
@@ -65,16 +59,20 @@ export default function PushNotificationManager() {
 
                 setIsSubscribed(isOwned);
             } else {
-                // Determine fallback if API fails? Assume false to be safe/force resync attempt?
-                // Or true if we trust browser? 
-                // Let's assume false to force a "Subscribe" button which will just update the backend.
                 setIsSubscribed(false);
             }
         } catch (e) {
             console.error(e);
             setIsSubscribed(false);
         }
-    };
+    }, [user]);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+            setPermission(Notification.permission);
+            checkSubscription();
+        }
+    }, [user, checkSubscription]);
 
     const subscribeToPush = async () => {
         if (!user) return;
