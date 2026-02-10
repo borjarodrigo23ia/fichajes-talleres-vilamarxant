@@ -122,8 +122,8 @@ export default function HistorialPage() {
         }
 
         return (
-            <div className="w-full py-10 mt-10 border-t border-gray-100 mb-20 md:mb-0">
-                <div className="flex items-center justify-between w-full max-w-lg mx-auto text-gray-500 font-medium p-2 px-4 transition-all duration-300">
+            <div className="w-full pt-8 mt-6 border-t border-gray-100/80">
+                <div className="flex items-center justify-between w-full max-w-lg mx-auto text-gray-500 font-medium pb-2 transition-all duration-300">
                     <button
                         type="button"
                         aria-label="prev"
@@ -222,9 +222,9 @@ export default function HistorialPage() {
                 </div>
 
                 {activeTab === 'activity' ? (
-                    <>
+                    <div className="flex flex-col min-h-[500px]">
                         {/* Filters - Exact Custom Component Design */}
-                        <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-4 mb-8">
                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none ml-1">
                                 Filtrar por Rango de Fechas
                             </span>
@@ -239,15 +239,19 @@ export default function HistorialPage() {
                             />
                         </div>
 
-                        <HistoryList
-                            cycles={paginatedCycles}
-                            loading={loading}
-                            title="Historial de Jornadas"
-                            onEdit={handleEdit}
-                        />
+                        <div className="flex-1">
+                            <HistoryList
+                                cycles={paginatedCycles}
+                                loading={loading}
+                                title="Historial de Jornadas"
+                                onEdit={handleEdit}
+                            />
+                        </div>
 
-                        {renderPagination()}
-                    </>
+                        <div className="mt-auto pb-10 md:pb-0">
+                            {renderPagination()}
+                        </div>
+                    </div>
                 ) : (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <AuditHistoryList userId={user?.id} />
