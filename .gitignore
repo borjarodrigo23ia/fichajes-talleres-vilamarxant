@@ -34,3 +34,12 @@ next-env.d.ts
 
 # zip files
 *.zip
+
+# secrets and keys
+vapid_keys*
+read_keys.js
+generate_keys.js
+regenerate_keys*.js
+*.json
+!package.json
+!tsconfig.json
