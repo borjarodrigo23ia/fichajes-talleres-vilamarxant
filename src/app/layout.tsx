@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Outfit, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from '@/context/AuthContext';
+import { NetworkStatusBanner } from '@/components/ui/NetworkStatusBanner';
 import "./globals.css";
 
 const outfit = Outfit({
@@ -17,10 +18,14 @@ export const metadata: Metadata = {
     title: "Control Horario | Fichajes",
     description: "Sistema de control horario y gestión de jornadas",
     manifest: "/manifest.json",
+    themeColor: "#6366F1",
     appleWebApp: {
         capable: true,
         statusBarStyle: "black-translucent",
-        title: "Fichajes"
+        title: "Fichajes",
+        startupImage: [
+            '/icon-512.png',
+        ],
     },
     icons: {
         icon: [
@@ -50,6 +55,7 @@ export default function RootLayout({
                 className={`${outfit.variable} ${jetbrainsMono.variable} font-sans antialiased bg-white text-[#121726]`}
                 suppressHydrationWarning={true}
             >
+                <NetworkStatusBanner />
                 <AuthProvider>
                     {children}
                 </AuthProvider>

@@ -13,4 +13,14 @@ const nextConfig: NextConfig = {
     },
 };
 
+// Only apply PWA in production to avoid Turbopack/Dev-server hangs
 export default nextConfig;
+/* (process.env.NODE_ENV === 'production'
+    ? require('next-pwa')({
+        dest: 'public',
+        disable: false,
+        register: true,
+        skipWaiting: true,
+    })(nextConfig)
+    : nextConfig
+); */

@@ -13,6 +13,8 @@ interface TimerCardProps {
     onPausa: () => void;
     loading?: boolean;
     isInitialLoad?: boolean;
+    isOnline?: boolean;
+    offlineQueueCount?: number;
 }
 
 export const TimerCard: React.FC<TimerCardProps> = ({
@@ -22,9 +24,22 @@ export const TimerCard: React.FC<TimerCardProps> = ({
     onSalir,
     onPausa,
     loading,
-    isInitialLoad = false
+    isInitialLoad = false,
+    isOnline = true,
+    offlineQueueCount = 0
 }) => {
     const [currentTime, setCurrentTime] = useState<string>('');
+
+    const triggerVibration = () => {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate(100);
+        }
+    };
+
+    const handleAction = (callback: () => void) => {
+        triggerVibration();
+        callback();
+    };
 
     useEffect(() => {
         const updateTime = () => {
@@ -117,6 +132,22 @@ export const TimerCard: React.FC<TimerCardProps> = ({
                     {status.text}
                 </div>
 
+                {/* Offline & Queue Badges */}
+                <div className="flex flex-wrap gap-2 justify-center mb-4">
+                    {!isOnline && (
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-600 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider animate-pulse border border-red-200">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 4.243a5 5 0 01-7.072 0m0 0L4 15.536m2.121-12.728a9 9 0 0112.728 0m0 0L17 5.636" /></svg>
+                            Modo Offline
+                        </div>
+                    )}
+                    {offlineQueueCount > 0 && (
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider border border-amber-200 shadow-sm">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            {offlineQueueCount} pend. de sincronizar
+                        </div>
+                    )}
+                </div>
+
                 <div className="text-center">
                     <h2 className="text-4xl md:text-6xl font-bold text-gray-900 tracking-tighter mb-2 font-mono flex justify-center">
                         {displayTime?.split('').map((char, i) => (
@@ -140,7 +171,7 @@ export const TimerCard: React.FC<TimerCardProps> = ({
 
                 {!isInitialLoad && currentState === 'sin_iniciar' && (
                     <button
-                        onClick={onEntrar}
+                        onClick={() => handleAction(onEntrar)}
                         disabled={loading}
                         className="group relative w-full py-5 md:py-6 rounded-2xl bg-[#AFF0BA] text-slate-800 font-bold text-lg md:text-xl shadow-[0_0_20px_rgba(175,240,186,0.4)] hover:shadow-[0_0_30px_rgba(175,240,186,0.6)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out touch-manipulation"
                     >
@@ -155,14 +186,14 @@ export const TimerCard: React.FC<TimerCardProps> = ({
                 {!isInitialLoad && currentState === 'trabajando' && (
                     <div className="grid grid-cols-2 gap-3 md:gap-4">
                         <button
-                            onClick={onPausa}
+                            onClick={() => handleAction(onPausa)}
                             disabled={loading}
                             className="group relative py-5 md:py-6 rounded-2xl bg-[#FFEEA3] text-slate-800 font-bold text-base md:text-lg shadow-[0_0_20px_rgba(255,238,163,0.4)] hover:shadow-[0_0_30px_rgba(255,238,163,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 touch-manipulation"
                         >
                             Pausar
                         </button>
                         <button
-                            onClick={onSalir}
+                            onClick={() => handleAction(onSalir)}
                             disabled={loading}
                             className="group relative py-5 md:py-6 rounded-2xl bg-[#FF7A7A] text-white font-bold text-base md:text-lg shadow-[0_0_20px_rgba(255,122,122,0.4)] hover:shadow-[0_0_30px_rgba(255,122,122,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 touch-manipulation"
                         >
@@ -174,14 +205,14 @@ export const TimerCard: React.FC<TimerCardProps> = ({
                 {!isInitialLoad && currentState === 'en_pausa' && (
                     <div className="grid grid-cols-2 gap-3 md:gap-4">
                         <button
-                            onClick={onPausa} // This toggles back to resume in parent logic
+                            onClick={() => handleAction(onPausa)} // This toggles back to resume in parent logic
                             disabled={loading}
                             className="group relative py-5 md:py-6 rounded-2xl bg-[#ACE4F2] text-slate-800 font-bold text-base md:text-lg shadow-[0_0_20px_rgba(172,228,242,0.4)] hover:shadow-[0_0_30px_rgba(172,228,242,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 touch-manipulation"
                         >
                             Reanudar
                         </button>
                         <button
-                            onClick={onSalir}
+                            onClick={() => handleAction(onSalir)}
                             disabled={loading}
                             className="group relative py-5 md:py-6 rounded-2xl bg-[#FF7A7A] text-white font-bold text-base md:text-lg shadow-[0_0_20px_rgba(255,122,122,0.4)] hover:shadow-[0_0_30px_rgba(255,122,122,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 touch-manipulation"
                         >

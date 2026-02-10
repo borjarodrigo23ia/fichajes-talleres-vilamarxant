@@ -10,6 +10,8 @@ import { differenceInMinutes, differenceInHours, differenceInDays } from 'date-f
 import { dlogFichajes as dlog } from '@/lib/debug-fichajes';
 import { parseDolibarrDate } from '@/lib/date-utils';
 import { getCurrentPosition } from '@/lib/geolocation';
+import { groupFichajesIntoCycles as groupFichajesIntoCyclesLogic } from '@/lib/fichajes-logic';
+import { offlineStore, QueuedFichaje } from '@/lib/offline-store';
 
 export interface UseFichajesOptions {
     fkUser?: string | null;
@@ -34,118 +36,93 @@ export const useFichajes = (options?: UseFichajesOptions) => {
     const [activeCycle, setActiveCycle] = useState<WorkCycle | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+    const [offlineQueueCount, setOfflineQueueCount] = useState(0);
     const ITEMS_PER_PAGE = 5;
+
+    // Actualizar estado de red y cola
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+        const updateQueueCount = () => setOfflineQueueCount(offlineStore.getQueue().length);
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateQueueCount();
+
+        // Check queue periodically or on focus
+        const interval = setInterval(updateQueueCount, 5000);
+        window.addEventListener('focus', updateQueueCount);
+
+        return () => {
+            window.removeEventListener('online', updateOnlineStatus);
+            window.removeEventListener('offline', updateOnlineStatus);
+            window.removeEventListener('focus', updateQueueCount);
+            clearInterval(interval);
+        };
+    }, []);
+
+    // Función de sincronización automática
+    const syncOfflineFichajes = useCallback(async () => {
+        if (!navigator.onLine || isLoading || !user) return;
+
+        const queue = offlineStore.getQueue();
+        if (queue.length === 0) return;
+
+        toast.loading(`Sincronizando ${queue.length} fichajes offline...`, { id: 'sync-toast' });
+
+        let successCount = 0;
+        const token = typeof window !== 'undefined' ? localStorage.getItem('dolibarr_token') : '';
+
+        for (const item of queue) {
+            try {
+                const requestData = {
+                    tipo: item.tipo,
+                    observaciones: item.observaciones + ' (Sincronizado offline)',
+                    geolocationEnabled: !!(item.latitud && item.longitud),
+                    ...(item.latitud && { latitud: item.latitud, longitud: item.longitud }),
+                    usuario: item.usuario || user?.login,
+                    fecha_manual: item.fecha // Enviar la fecha real en que ocurrió
+                };
+
+                const response = await fetch('/api/fichajes/registrar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'DOLAPIKEY': token || ''
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                if (response.ok || response.status === 409) {
+                    offlineStore.removeFromQueue(item.id);
+                    successCount++;
+                }
+            } catch (err) {
+                console.error('Error sincronizando item:', item.id, err);
+            }
+        }
+
+        if (successCount > 0) {
+            toast.success(`${successCount} fichajes sincronizados`, { id: 'sync-toast' });
+            fetchFichajes();
+            setOfflineQueueCount(offlineStore.getQueue().length);
+        } else {
+            toast.dismiss('sync-toast');
+        }
+    }, [isLoading, user]);
+
+    // Trigger sync when coming back online
+    useEffect(() => {
+        if (isOnline) {
+            syncOfflineFichajes();
+        }
+    }, [isOnline, syncOfflineFichajes]);
 
     // Función para agrupar fichajes en ciclos de trabajo
     const groupFichajesIntoCycles = useCallback((fichajesArray: Fichaje[]) => {
-        if (!Array.isArray(fichajesArray) || fichajesArray.length === 0) {
-            return [];
-        }
-
-        // --- SOLUCIÓN: Agrupar por usuario primero para soportar Historial Global ---
-        const fichajesByUser: Record<string, Fichaje[]> = {};
-        fichajesArray.forEach(f => {
-            const key = f.fk_user || f.usuario || 'unknown';
-            if (!fichajesByUser[key]) fichajesByUser[key] = [];
-            fichajesByUser[key].push(f);
-        });
-
-        let allCycles: WorkCycle[] = [];
-
-        // Procesar cada usuario de forma independiente
-        Object.values(fichajesByUser).forEach(userFichajes => {
-            const sortedFichajes = [...userFichajes].sort((a, b) => {
-                const dateA = a.fecha_creacion;
-                const dateB = b.fecha_creacion;
-                return parseDolibarrDate(dateA).getTime() - parseDolibarrDate(dateB).getTime();
-            });
-
-            const userCycles: WorkCycle[] = [];
-            let currentCycle: WorkCycle | null = null;
-
-            for (const fichaje of sortedFichajes) {
-                if (!fichaje || !fichaje.tipo || !fichaje.fecha_creacion) continue;
-
-                const dateStr = fichaje.fecha_creacion;
-                const fecha = parseDolibarrDate(dateStr);
-
-                switch (fichaje.tipo) {
-                    case 'entrar':
-                        if (currentCycle?.entrada) {
-                            const lastEntryDateStr = currentCycle.entrada.fecha_creacion;
-                            const hoursFromLastEntry = differenceInMinutes(fecha, parseDolibarrDate(lastEntryDateStr)) / 60;
-                            if (hoursFromLastEntry > 12) {
-                                currentCycle.salida = { ...currentCycle.entrada, id: '-1', tipo: 'salir', fecha_creacion: currentCycle.entrada.fecha_creacion, observaciones: 'Cierre automático > 12h' };
-                                userCycles.push(currentCycle);
-                                currentCycle = null;
-                            }
-                        }
-                        if (!currentCycle) {
-                            currentCycle = { entrada: { ...fichaje, tipo: 'entrar', fecha_creacion: dateStr }, pausas: [], fecha: dateStr };
-                        }
-                        break;
-
-                    case 'salir':
-                        if (currentCycle) {
-                            currentCycle.salida = { ...fichaje, tipo: 'salir', fecha_creacion: dateStr };
-                            const entradaDateStr = currentCycle.entrada.fecha_creacion;
-                            const tiempoTotal = differenceInMinutes(fecha, parseDolibarrDate(entradaDateStr));
-                            let tiempoPausado = 0;
-                            currentCycle.pausas.forEach(p => {
-                                if (p.inicio && p.fin) {
-                                    const finS = p.fin.fecha_creacion;
-                                    const iniS = p.inicio.fecha_creacion;
-                                    tiempoPausado += differenceInMinutes(parseDolibarrDate(finS), parseDolibarrDate(iniS));
-                                }
-                            });
-                            currentCycle.duracion_total = tiempoTotal;
-                            currentCycle.duracion_pausas = tiempoPausado;
-                            currentCycle.duracion_efectiva = tiempoTotal - tiempoPausado;
-                            userCycles.push(currentCycle);
-                            currentCycle = null;
-                        }
-                        break;
-
-                    case 'iniciar_pausa':
-                        if (currentCycle) currentCycle.pausas.push({ inicio: { ...fichaje, tipo: 'iniciar_pausa', fecha_creacion: dateStr } });
-                        break;
-
-                    case 'terminar_pausa':
-                        if (currentCycle && currentCycle.pausas.length > 0) {
-                            const lastP = currentCycle.pausas[currentCycle.pausas.length - 1];
-                            if (!lastP.fin) lastP.fin = { ...fichaje, tipo: 'terminar_pausa', fecha_creacion: dateStr };
-                        }
-                        break;
-                }
-            }
-
-            if (currentCycle?.entrada) {
-                const now = new Date();
-                const entradaDateStr = currentCycle.entrada.fecha_creacion;
-                const tiempoTotal = differenceInMinutes(now, parseDolibarrDate(entradaDateStr));
-                let tiempoPausado = 0;
-                currentCycle.pausas.forEach(p => {
-                    if (p.inicio && p.fin) {
-                        const finS = p.fin.fecha_creacion;
-                        const iniS = p.inicio.fecha_creacion;
-                        tiempoPausado += differenceInMinutes(parseDolibarrDate(finS), parseDolibarrDate(iniS));
-                    }
-                });
-                currentCycle.duracion_total = tiempoTotal;
-                currentCycle.duracion_pausas = tiempoPausado;
-                currentCycle.duracion_efectiva = tiempoTotal - tiempoPausado;
-                userCycles.push(currentCycle);
-            }
-
-            allCycles = [...allCycles, ...userCycles];
-        });
-
-        // Ordenar todos los ciclos por fecha de entrada (más reciente primero)
-        return allCycles.sort((a, b) => {
-            const dateA = a.entrada.fecha_creacion;
-            const dateB = b.entrada.fecha_creacion;
-            return parseDolibarrDate(dateB).getTime() - parseDolibarrDate(dateA).getTime();
-        });
+        return groupFichajesIntoCyclesLogic(fichajesArray);
     }, []);
 
     useEffect(() => {
@@ -169,9 +146,10 @@ export const useFichajes = (options?: UseFichajesOptions) => {
     }, [fichajes, groupFichajesIntoCycles]);
 
     const fetchFichajes = useCallback(async () => {
-        // Don't fetch if user is not authenticated
-        if (!user) {
+        // Don't fetch if user is not authenticated or offline
+        if (!user || !navigator.onLine) {
             setIsLoading(false);
+            if (!user) setIsInitialLoad(false);
             return;
         }
 
@@ -319,6 +297,23 @@ export const useFichajes = (options?: UseFichajesOptions) => {
                 }
             }
 
+            // --- MANEJO OFFLINE ---
+            if (!navigator.onLine) {
+                offlineStore.enqueue({
+                    tipo,
+                    observaciones: observaciones || '',
+                    latitud: finalCoords?.lat,
+                    longitud: finalCoords?.lng,
+                    usuario: user?.login
+                });
+
+                toast.success('Fichaje guardado localmente (Modo Offline)', { icon: '📴' });
+                setOfflineQueueCount(offlineStore.getQueue().length);
+
+                // Simular actualización local para feedback inmediato si es posible
+                return { success: true, offline: true };
+            }
+
             const requestData = {
                 tipo,
                 observaciones: observaciones || '',
@@ -407,6 +402,8 @@ export const useFichajes = (options?: UseFichajesOptions) => {
         isInitialLoad,
         error,
         currentState,
+        isOnline,
+        offlineQueueCount,
         geolocationEnabled,
         geolocationLoading,
         currentPage,

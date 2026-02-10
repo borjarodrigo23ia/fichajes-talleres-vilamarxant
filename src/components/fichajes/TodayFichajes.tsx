@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
 import { MapPinCheck, ChevronDown, ChevronUp, PencilLine, CheckCircle, XCircle, Clock as ClockIcon } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { getDailyEvents, TimelineEvent } from '@/lib/fichajes-utils';
 
 interface TodayFichajesProps {
@@ -43,7 +44,28 @@ export const TodayFichajes: React.FC<TodayFichajesProps> = ({ cycles, loading, o
     const formatTime = (date: Date) => format(date, 'HH:mm');
 
     if (loading) {
-        return <div className="animate-pulse h-48 bg-gray-100 rounded-[2.5rem]" />;
+        return (
+            <div className="bg-white rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 border border-white/20">
+                <div className="flex justify-between items-center mb-8">
+                    <div className="space-y-2">
+                        <Skeleton width={180} height={28} />
+                        <Skeleton width={220} height={20} />
+                    </div>
+                    <Skeleton width={80} height={28} borderRadius="full" />
+                </div>
+                <div className="space-y-6">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex gap-4">
+                            <Skeleton width={12} height={12} borderRadius="full" className="mt-2" />
+                            <div className="flex-1 space-y-2">
+                                <Skeleton width={60} height={24} />
+                                <Skeleton width={120} height={18} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
     }
 
     if (!cycles.length) return null;

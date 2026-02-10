@@ -1,19 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useVacations, VacationRequest } from '@/hooks/useVacations';
 import { useAuth } from '@/context/AuthContext';
 import { Palmtree, HeartPulse, ContactRound, Calendar, Save, AlertCircle, Info } from 'lucide-react';
+import { checkVacationOverlap } from '@/lib/vacation-logic';
 
 interface VacationRequestFormProps {
     onSuccess: () => void;
 }
 
 export default function VacationRequestForm({ onSuccess }: VacationRequestFormProps) {
-    const { createVacation, loading, error: hookError } = useVacations();
+    const { user } = useAuth();
+    const { createVacation, fetchVacations, loading, error: hookError } = useVacations();
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [comments, setComments] = useState('');
     const [selectedType, setSelectedType] = useState<'vacaciones' | 'enfermedad' | 'asuntos_propios'>('vacaciones');
     const [formError, setFormError] = useState<string | null>(null);
+    const [existingRequests, setExistingRequests] = useState<VacationRequest[]>([]);
+
+    useEffect(() => {
+        const loadExisting = async () => {
+            if (user?.login) {
+                const requests = await fetchVacations({ usuario: user.login });
+                setExistingRequests(requests);
+            }
+        };
+        loadExisting();
+    }, [user?.login, fetchVacations]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -26,6 +39,13 @@ export default function VacationRequestForm({ onSuccess }: VacationRequestFormPr
 
         if (new Date(startDate) > new Date(endDate)) {
             setFormError('La fecha de fin no puede ser anterior a la de inicio');
+            return;
+        }
+
+        // --- VALIDACIÓN DE SOLAPAMIENTO ---
+        const overlap = checkVacationOverlap(startDate, endDate, existingRequests);
+        if (overlap) {
+            setFormError(`Ya tienes una solicitud de ${overlap.tipo} que se solapa con estas fechas (${overlap.fecha_inicio} a ${overlap.fecha_fin})`);
             return;
         }
 

@@ -13,6 +13,7 @@ import {
     Clock as ClockIcon,
     History as HistoryIcon
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import { getDailyEvents, TimelineEvent } from '@/lib/fichajes-utils';
 import { toast } from 'react-hot-toast';
 
@@ -118,7 +119,14 @@ export const DayHistoryCard: React.FC<DayHistoryCardProps> = ({ date, cycles, sh
                                         <div className="px-6 pb-6 pt-2 border-t border-gray-50 animate-fade-in">
                                             <div className="space-y-8 mt-4">
                                                 {group.cycles.map((cycle, idx) => (
-                                                    <SessionItem key={cycle.id || idx} cycle={cycle} index={idx} formatTime={formatTime} />
+                                                    <SessionItem
+                                                        key={cycle.id || idx}
+                                                        cycle={cycle}
+                                                        index={idx}
+                                                        formatTime={formatTime}
+                                                        onEdit={onEdit}
+                                                        isGlobal={isGlobal}
+                                                    />
                                                 ))}
                                             </div>
                                         </div>
@@ -152,7 +160,10 @@ export const DayHistoryCard: React.FC<DayHistoryCardProps> = ({ date, cycles, sh
 
 // Subcomponent to avoid repetition
 const SessionItem = ({ cycle, index, formatTime, showUserName = false, onEdit, isGlobal = false }: { cycle: WorkCycle, index: number, formatTime: (d: Date) => string, showUserName?: boolean, onEdit?: (event: TimelineEvent) => void, isGlobal?: boolean }) => {
+    const { user } = useAuth();
     const events = getDailyEvents([cycle]);
+    const canEdit = user?.admin || !isGlobal;
+
     return (
         <div className="relative">
             <div className="flex justify-between items-center mb-4">
@@ -217,7 +228,7 @@ const SessionItem = ({ cycle, index, formatTime, showUserName = false, onEdit, i
                                 )}
 
                                 <div className="flex items-center gap-1">
-                                    {!isGlobal && (
+                                    {canEdit && (
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();

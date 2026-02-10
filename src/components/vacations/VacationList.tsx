@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useVacations, VacationRequest } from '@/hooks/useVacations';
 import { CalendarCheck, CalendarX, Clock, Trash2, Palmtree, HeartPulse, ContactRound, Filter, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
 import { CustomSelect } from '@/components/ui/CustomSelect';
-import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface VacationListProps {
     refreshTrigger: number;
@@ -259,8 +259,36 @@ export default function VacationList({ refreshTrigger }: VacationListProps) {
         );
     };
 
+    function cn(...classes: any[]) {
+        return classes.filter(Boolean).join(' ');
+    }
+
     if (loading) {
-        return <div className="p-12 text-center text-gray-400 font-medium animate-pulse">Cargando solicitudes...</div>;
+        return (
+            <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 px-2">
+                    <div className="space-y-2">
+                        <Skeleton width={200} height={28} />
+                        <Skeleton width={150} height={18} />
+                    </div>
+                    <Skeleton width={256} height={48} borderRadius="full" />
+                </div>
+                <div className="grid gap-4 max-w-2xl mx-auto w-full">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <Skeleton width={40} height={40} borderRadius="xl" />
+                                <div className="space-y-2">
+                                    <Skeleton width={180} height={20} />
+                                    <Skeleton width={100} height={14} />
+                                </div>
+                            </div>
+                            <Skeleton width={24} height={24} borderRadius="lg" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
     }
 
     if (vacations.length === 0) {

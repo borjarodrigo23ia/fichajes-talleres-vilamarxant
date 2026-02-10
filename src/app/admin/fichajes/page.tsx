@@ -13,11 +13,17 @@ import AuditHistoryList from '@/components/fichajes/AuditHistoryList';
 import { ExportActions } from '@/components/fichajes/ExportActions';
 import { HistoryDateRangePicker } from '@/components/fichajes/HistoryDateRangePicker';
 import { cn } from '@/lib/utils';
+import { TimelineEvent } from '@/lib/fichajes-utils';
+import ManualFichajeModal from '@/components/fichajes/ManualFichajeModal';
 
 export default function AdminFichajesPage() {
     const router = useRouter();
     const [selectedUsers, setSelectedUsers] = useState<string[]>(['0']);
     const { users, loading: loadingUsers } = useUsers();
+
+    const [manualModalOpen, setManualModalOpen] = useState(false);
+    const [targetEvent, setTargetEvent] = useState<TimelineEvent | undefined>(undefined);
+    const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
 
     const initialFilter = useMemo(() => {
         const now = new Date();
@@ -28,7 +34,7 @@ export default function AdminFichajesPage() {
     }, []);
 
     // Pass comma-separated IDs to useFichajes
-    const { workCycles, loading, setFilter, filter } = useFichajes({
+    const { workCycles, loading, setFilter, filter, refreshFichajes } = useFichajes({
         fkUser: selectedUsers.includes('0') ? '0' : selectedUsers.join(','),
         initialFilter
     });
@@ -47,6 +53,13 @@ export default function AdminFichajesPage() {
                 return [...newSelection, id];
             }
         });
+    };
+
+    const handleEditFichaje = (event: TimelineEvent) => {
+        console.log('[AdminFichajesPage] Editing individual event:', event);
+        setTargetEvent(event);
+        setSelectedDate(event.dateStr); // event.dateStr comes from getDailyEvents
+        setManualModalOpen(true);
     };
 
     // --- Statistics Computation ---
@@ -203,6 +216,7 @@ export default function AdminFichajesPage() {
                                 loading={loading}
                                 showUserName={selectedUsers.includes('0') || selectedUsers.length > 1}
                                 isGlobal
+                                onEdit={handleEditFichaje}
                             />
                         </div>
                     ) : (
@@ -213,6 +227,18 @@ export default function AdminFichajesPage() {
                         </div>
                     )
                 }
+
+                <ManualFichajeModal
+                    isOpen={manualModalOpen}
+                    onClose={() => {
+                        setManualModalOpen(false);
+                        setTargetEvent(undefined);
+                        setSelectedDate(undefined);
+                    }}
+                    onSaved={refreshFichajes}
+                    initialDate={selectedDate}
+                    targetEvent={targetEvent}
+                />
             </main >
             <MobileNav />
         </div >

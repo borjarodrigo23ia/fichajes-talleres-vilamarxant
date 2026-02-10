@@ -8,9 +8,18 @@ import VacationQuotaCard from '@/components/vacations/VacationQuotaCard';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
 import { Palmtree, Info } from 'lucide-react';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { RefreshIndicator } from '@/components/ui/RefreshIndicator';
 
 export default function VacationsPage() {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+    const { pullProgress, isRefreshing } = usePullToRefresh(async () => {
+        setRefreshTrigger(prev => prev + 1);
+        // Add a small artificial delay for better UX if needed, 
+        // but setRefreshTrigger will cause components to re-fetch.
+        await new Promise(r => setTimeout(r, 600));
+    });
 
     const handleSuccess = () => {
         setRefreshTrigger(prev => prev + 1);
@@ -19,6 +28,7 @@ export default function VacationsPage() {
 
     return (
         <div className="flex min-h-screen bg-[#FAFBFC]">
+            <RefreshIndicator progress={pullProgress} isRefreshing={isRefreshing} />
             {/* Sidebar (Desktop) */}
             <div className="hidden md:block">
                 <Sidebar />

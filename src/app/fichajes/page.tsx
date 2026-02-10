@@ -14,6 +14,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { TimelineEvent } from '@/lib/fichajes-utils';
 import InstallPrompt from '@/components/pwa/InstallPrompt';
 import AdminChangeRequestModal from '@/components/fichajes/AdminChangeRequestModal';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { RefreshIndicator } from '@/components/ui/RefreshIndicator';
 
 export default function FichajesPage() {
     const { user } = useAuth();
@@ -27,12 +29,18 @@ export default function FichajesPage() {
         registrarSalida,
         iniciarPausa,
         refreshFichajes,
-        terminarPausa
+        terminarPausa,
+        isOnline,
+        offlineQueueCount
     } = useFichajes();
 
     const [manualModalOpen, setManualModalOpen] = useState(false);
     const [targetEvent, setTargetEvent] = useState<TimelineEvent | undefined>(undefined);
     const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
+
+    const { pullProgress, isRefreshing } = usePullToRefresh(async () => {
+        await refreshFichajes();
+    });
 
     const handleEditFichaje = (event?: TimelineEvent) => {
         setTargetEvent(event);
@@ -62,6 +70,7 @@ export default function FichajesPage() {
 
     return (
         <div className="flex min-h-screen bg-[#FAFBFC]">
+            <RefreshIndicator progress={pullProgress} isRefreshing={isRefreshing} />
             <div className="hidden md:block">
                 <Sidebar />
             </div>
@@ -95,6 +104,8 @@ export default function FichajesPage() {
                             onPausa={onPausaClick}
                             loading={loading}
                             isInitialLoad={isInitialLoad}
+                            isOnline={isOnline}
+                            offlineQueueCount={offlineQueueCount}
                         />
                     </section>
 

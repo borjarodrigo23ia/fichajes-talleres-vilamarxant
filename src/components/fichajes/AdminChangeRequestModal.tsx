@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Check, X, FileText, AlertTriangle } from 'lucide-react';
+import { X, FileText, ShieldCheck, History, UserCheck, MessageSquare, ArrowRight, CircleCheck, CircleX, Hourglass, CalendarSync } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { parseDolibarrDate } from '@/lib/date-utils';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface PendingChange {
     id: string; // rowid
     tipo: string;
-    fecha_creacion_iso: string; // Used for Date constructor
+    fecha_creacion_iso: string; // El nuevo horario propuesto
+    fecha_anterior_iso?: string; // El horario original
     observaciones: string;
     usuario_nombre?: string;
 }
@@ -17,6 +21,9 @@ export default function AdminChangeRequestModal() {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [currentIndex, setCurrentIndex] = useState(0);
+
+    // Skip modal entirely for administrators
+    if (user?.admin) return null;
 
     useEffect(() => {
         if (user) {
@@ -81,87 +88,156 @@ export default function AdminChangeRequestModal() {
     if (!isOpen || pendingChanges.length === 0) return null;
 
     const currentChange = pendingChanges[currentIndex];
+    const isSalida = currentChange.tipo === 'salida';
 
-    // Helper to format date nicely
+    // Type colors matching TimerCard
+    const typeColor = isSalida ? '#FF7A7A' : '#AFF0BA';
+    const typeText = isSalida ? '#FFFFFF' : '#1D4D2F';
+
+    // Helper to format date nicely - Exactly like TodayFichajes
     const formatDate = (isoDate: string) => {
         try {
-            return new Date(isoDate).toLocaleString('es-ES', {
-                dateStyle: 'full',
-                timeStyle: 'medium'
-            });
+            const date = parseDolibarrDate(isoDate);
+            const formatted = format(date, "EEEE, d 'de' MMMM 'a las' HH:mm", { locale: es });
+            return formatted.charAt(0).toUpperCase() + formatted.slice(1);
         } catch (e) {
             return isoDate;
         }
     };
 
+    const formatTimeOnly = (isoDate: string) => {
+        try {
+            if (!isoDate) return '--:--';
+
+            // If it's already a short time string like "09:05:00" or "09:05"
+            if (isoDate.includes(':') && !isoDate.includes('-')) {
+                const parts = isoDate.split(':');
+                if (parts.length >= 2) {
+                    return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+                }
+            }
+
+            const date = parseDolibarrDate(isoDate);
+            if (isNaN(date.getTime())) return '--:--';
+            return format(date, "HH:mm");
+        } catch (e) {
+            return '--:--';
+        }
+    };
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
-                <div className="p-6 bg-amber-50 border-b border-amber-100 flex items-start gap-4">
-                    <div className="p-3 bg-amber-100 rounded-full text-amber-600 shrink-0">
-                        <AlertTriangle size={24} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#121726]/40 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-400 border border-gray-100">
+                {/* Header - Minimalist B&W */}
+                <div className="p-8 pb-4">
+                    <div className="flex items-center gap-4 mb-4">
+                        <div className="p-3 bg-black rounded-2xl text-white shadow-lg">
+                            <ShieldCheck size={24} />
+                        </div>
+                        <h2 className="text-xl font-black text-black tracking-tight">
+                            Validar cambio
+                        </h2>
                     </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-amber-900">Validación Requerida</h2>
-                        <p className="text-amber-700 mt-1 text-sm">
-                            El administrador ha modificado uno de tus registros. Por ley, debes aceptar o rechazar este cambio.
-                        </p>
-                    </div>
+                    <p className="text-gray-400 text-xs font-semibold leading-relaxed">
+                        Un administrador ha modificado un registro. Por favor, confirma si el cambio es correcto.
+                    </p>
                 </div>
 
-                <div className="p-6 space-y-6">
-                    <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
-                        <div className="flex items-center gap-2 mb-4 text-gray-500 text-sm font-medium uppercase tracking-wide">
-                            <FileText size={16} />
-                            Detalles del Cambio ({pendingChanges.length} pendientes)
+                {/* Content Area - Small & Compact */}
+                <div className="px-8 pb-8 space-y-5">
+                    <div className="bg-gray-50/50 rounded-3xl p-6 border border-gray-100 space-y-6">
+                        {/* Status Label - Contextual Color */}
+                        <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-gray-300">
+                                <History size={10} />
+                                {currentIndex + 1} de {pendingChanges.length}
+                            </div>
+                            <span
+                                className="px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-tight shadow-sm"
+                                style={{ backgroundColor: typeColor, color: typeText }}
+                            >
+                                {isSalida ? 'Salida' : 'Entrada'}
+                            </span>
                         </div>
 
-                        <div className="space-y-4">
-                            <div className="flex flex-col border-b border-gray-200 pb-3">
-                                <span className="text-xs text-gray-500 uppercase font-semibold mb-1">Fecha del registro</span>
-                                <span className="font-semibold text-gray-900 text-lg">
+                        <div className="space-y-5">
+                            {/* Comparison view: Old vs New */}
+                            <div className="space-y-2">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-gray-300">Cambio solicitado</span>
+
+                                <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm">
+                                    <div className="flex-1">
+                                        <div className="text-[8px] font-black uppercase text-gray-400 mb-0.5">Anterior</div>
+                                        <div className="text-sm font-bold text-gray-300 line-through">
+                                            {currentChange.fecha_anterior_iso ? formatTimeOnly(currentChange.fecha_anterior_iso) : '--:--'}
+                                        </div>
+                                    </div>
+
+                                    <div className="text-gray-200">
+                                        <ArrowRight size={14} />
+                                    </div>
+
+                                    <div className="flex-1">
+                                        <div className="text-[8px] font-black uppercase text-black mb-0.5">Propuesto</div>
+                                        <div className="text-sm font-black text-black">
+                                            {formatTimeOnly(currentChange.fecha_creacion_iso)}
+                                        </div>
+                                    </div>
+
+                                    <div className="p-2 bg-gray-50 rounded-xl text-black">
+                                        <CalendarSync size={16} />
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-400 font-bold px-1">
                                     {formatDate(currentChange.fecha_creacion_iso)}
-                                </span>
-                            </div>
-                            <div className="flex justify-between border-b border-gray-200 pb-3">
-                                <span className="text-gray-600">Tipo de fichaje:</span>
-                                <span className={`font-bold px-1 py-0.5 rounded text-sm ${currentChange.tipo === 'entrada' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                                    {currentChange.tipo === 'entrada' ? 'ENTRADA' : 'SALIDA'}
-                                </span>
-                            </div>
-                            <div>
-                                <span className="text-gray-600 block mb-2 text-sm">Motivo indicado por admin:</span>
-                                <p className="text-sm bg-white p-4 rounded-lg border border-gray-200 text-gray-800 italic leading-relaxed">
-                                    "{currentChange.observaciones}"
                                 </p>
                             </div>
+
+                            <div className="space-y-1 pt-1">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-gray-300">Observaciones del administrador</span>
+                                <div className="bg-white/80 rounded-2xl p-4 border border-gray-100 shadow-sm">
+                                    <p className="text-xs text-gray-500 font-medium italic leading-relaxed">
+                                        {(() => {
+                                            const cleaned = currentChange.observaciones
+                                                .replace(/\[\s*Selecciona un motivo\s*\.\.\.\s*\]/gi, '')
+                                                .trim();
+                                            return cleaned ? `"${cleaned}"` : "Registro modificado por el administrador";
+                                        })()}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end items-center flex-wrap">
-                    <button
-                        onClick={() => setIsOpen(false)}
-                        className="px-3 py-2 text-gray-500 hover:text-gray-700 font-medium text-sm mr-auto"
-                    >
-                        Revisar luego
-                    </button>
-                    <button
-                        onClick={() => handleAction('reject')}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-red-100 text-red-600 rounded-xl font-medium hover:bg-red-50 hover:border-red-200 transition-colors disabled:opacity-50"
-                    >
-                        <X size={18} />
-                        Rechazar
-                    </button>
-                    <button
-                        onClick={() => handleAction('accept')}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all disabled:opacity-50"
-                    >
-                        <Check size={18} />
-                        Aceptar
-                    </button>
+                    {/* Footer Actions - Stacked for Mobile, minimalist B&W */}
+                    <div className="space-y-2 pt-2">
+                        <button
+                            onClick={() => handleAction('accept')}
+                            disabled={loading}
+                            className="w-full flex items-center justify-center gap-2 py-4 bg-black text-white rounded-2xl font-black text-sm hover:scale-[1.01] active:scale-[0.99] transition-all shadow-xl shadow-gray-200 disabled:opacity-50"
+                        >
+                            <CircleCheck size={18} className="text-white" />
+                            Confirmar cambio
+                        </button>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={() => handleAction('reject')}
+                                disabled={loading}
+                                className="py-3 bg-white border border-gray-100 text-gray-400 rounded-xl font-bold text-xs hover:text-red-500 hover:border-red-100 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                <CircleX size={14} className="text-red-500" />
+                                Rechazar
+                            </button>
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="py-3 bg-white border border-gray-100 text-gray-400 rounded-xl font-bold text-xs hover:text-black hover:border-black/10 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Hourglass size={14} className="text-amber-400" />
+                                Decidir luego
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
