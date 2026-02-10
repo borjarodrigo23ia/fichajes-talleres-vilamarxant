@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Outfit, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from '@/context/AuthContext';
 import { NetworkStatusBanner } from '@/components/ui/NetworkStatusBanner';
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 import "./globals.css";
 
 const outfit = Outfit({
@@ -55,6 +56,7 @@ export default function RootLayout({
                 className={`${outfit.variable} ${jetbrainsMono.variable} font-sans antialiased bg-white text-[#121726]`}
                 suppressHydrationWarning={true}
             >
+                <ServiceWorkerRegister />
                 <NetworkStatusBanner />
                 <AuthProvider>
                     {children}

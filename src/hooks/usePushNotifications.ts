@@ -1,0 +1,115 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'react-hot-toast';
+
+interface PushSubscription {
+    endpoint: string;
+    keys: {
+        p256dh: string;
+        auth: string;
+    };
+}
+
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+function urlBase64ToUint8Array(base64String: string) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+export default function PushNotificationManager() {
+    const { user } = useAuth();
+    const [isSubscribed, setIsSubscribed] = useState(false);
+    const [permission, setPermission] = useState<NotificationPermission>('default');
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+            setPermission(Notification.permission);
+            checkSubscription();
+        }
+    }, [user]);
+
+    const checkSubscription = async () => {
+        if (!user) return;
+
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+
+            if (!subscription) {
+                setIsSubscribed(false);
+                return;
+            }
+
+            // Verify if THIS user has this subscription in backend
+            const res = await fetch(`/api/web-push/subscribe?userId=${user.id}`, {
+                headers: { 'DOLAPIKEY': localStorage.getItem('dolibarr_token') || '' }
+            });
+
+            if (res.ok) {
+                const userSubs: PushSubscription[] = await res.json();
+                const currentEndpoint = subscription.endpoint;
+                const isOwned = userSubs.some((s: any) => s.endpoint === currentEndpoint);
+
+                setIsSubscribed(isOwned);
+            } else {
+                // Determine fallback if API fails? Assume false to be safe/force resync attempt?
+                // Or true if we trust browser? 
+                // Let's assume false to force a "Subscribe" button which will just update the backend.
+                setIsSubscribed(false);
+            }
+        } catch (e) {
+            console.error(e);
+            setIsSubscribed(false);
+        }
+    };
+
+    const subscribeToPush = async () => {
+        if (!user || !VAPID_PUBLIC_KEY) return;
+
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+
+            // Send subscription to backend
+            await fetch('/api/web-push/subscribe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'DOLAPIKEY': localStorage.getItem('dolibarr_token') || '',
+                    'X-User-Id': user.id
+                },
+                body: JSON.stringify(subscription)
+            });
+
+            setIsSubscribed(true);
+            setPermission(Notification.permission);
+            toast.success('Notificaciones activadas');
+        } catch (error) {
+            console.error('Error subscribing to push:', error);
+            // toast.error('Error al activar notificaciones');
+        }
+    };
+
+    return {
+        isSubscribed,
+        permission,
+        subscribeToPush,
+        checkSubscription
+    };
+}

@@ -1,0 +1,12 @@
+{
+  "1": {
+    "fichajes": true,
+    "vacaciones": true,
+    "cambios": true
+  },
+  "6": {
+    "fichajes": true,
+    "vacaciones": false,
+    "cambios": true
+  }
+}

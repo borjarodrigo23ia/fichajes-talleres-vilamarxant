@@ -26,8 +26,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const refreshUser = async () => {
-        const token = authService.getToken();
+        const token = localStorage.getItem('dolibarr_token');
         const storedUser = localStorage.getItem('dolibarr_user');
+        const loginTime = localStorage.getItem('dolibarr_login_time');
+
+        // Check for 24h expiration (86400000 ms)
+        if (loginTime) {
+            const now = Date.now();
+            const timeDiff = now - parseInt(loginTime, 10);
+            if (timeDiff > 24 * 60 * 60 * 1000) {
+                logout();
+                setIsLoading(false);
+                return;
+            }
+        }
 
         if (token && storedUser) {
             try {
@@ -86,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (response.success && response.success.code === 200) {
                 localStorage.setItem('dolibarr_token', response.success.token);
                 localStorage.setItem('dolibarr_user', username);
+                localStorage.setItem('dolibarr_login_time', Date.now().toString());
                 await refreshUser(); // Update state immediately
                 return { success: true };
             }
@@ -94,15 +107,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (e: any) {
             console.error('Login error:', e);
             // Return the actual error message if available
+            let message = e.message || 'Error de conexión';
+
+            // Catch specific Dolibarr/API errors and translate them
+            if (message && (
+                message.toLowerCase().includes('forbidden') ||
+                message.toLowerCase().includes('forbiden') ||
+                message.toLowerCase().includes('access denied') ||
+                message.toLowerCase().includes('acces denied')
+            )) {
+                message = 'Usuario o contraseña incorrectos. Inténtelo de nuevo';
+            }
+
             return {
                 success: false,
-                message: e.message || 'Error de conexión'
+                message
             };
         }
     };
 
     const logout = () => {
         authService.logout();
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('dolibarr_login_time');
+        }
         setUser(null);
 
         // Force complete cleanup by dispatching a custom event

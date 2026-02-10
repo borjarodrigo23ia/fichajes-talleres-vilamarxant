@@ -1,0 +1,15 @@
+[
+  {
+    "userId": "1",
+    "subscription": {
+      "endpoint": "https://fcm.googleapis.com/fcm/send/djOiAJMvxL4:APA91bFK5LGPPMXLEP8Y9ODkRiyy4illjQ9mK36SInagNSYnvrNWHh1W9zepBAFvawOFzjqWBVl-VmOpyV8SFjnFg1D5_ywbs3xl3_MvRpgitfo4ZUJoVETG9_iGIsFD9C32QhneYPjO",
+      "expirationTime": null,
+      "keys": {
+        "p256dh": "BPJrMwWEU9rrNEPX4l7o4ZcyohxDDHSDdoO8PzPY9g85QP7yy5bfUa7Vg9HSUZnGrZpfWwOD_m04-un1o-3qFMI",
+        "auth": "LTeEooV7TA_wqzpMAxiOeQ"
+      }
+    },
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+    "updatedAt": "2026-02-10T18:37:15.480Z"
+  }
+]

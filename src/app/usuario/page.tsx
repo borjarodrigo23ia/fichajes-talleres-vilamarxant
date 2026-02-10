@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { toast } from 'react-hot-toast';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import NotificationPreferences from '@/components/NotificationPreferences';
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -305,6 +306,12 @@ export default function UsuarioPage() {
                             </div>
                         </div>
                     </div>
+
+                    {/* Notification Preferences Section */}
+                    <div className="mt-8 w-full">
+                        <NotificationPreferences />
+                    </div>
+
                 </div>
             </main>
 

@@ -8,13 +8,14 @@ import { useRouter } from 'next/navigation';
 import { HistoryList } from '@/components/fichajes/HistoryList';
 import { CheckboxDropdown } from '@/components/ui/CheckboxDropdown';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Filter, CalendarClock, History, ClipboardList } from 'lucide-react';
+import { Filter, CalendarClock, History, ClipboardList, Calendar } from 'lucide-react';
 import AuditHistoryList from '@/components/fichajes/AuditHistoryList';
 import { ExportActions } from '@/components/fichajes/ExportActions';
 import { HistoryDateRangePicker } from '@/components/fichajes/HistoryDateRangePicker';
 import { cn } from '@/lib/utils';
 import { TimelineEvent } from '@/lib/fichajes-utils';
 import ManualFichajeModal from '@/components/fichajes/ManualFichajeModal';
+import AttendanceCalendarView from '@/components/admin/AttendanceCalendarView';
 
 export default function AdminFichajesPage() {
     const router = useRouter();
@@ -39,7 +40,7 @@ export default function AdminFichajesPage() {
         initialFilter
     });
 
-    const [activeTab, setActiveTab] = useState<'activity' | 'audit'>('activity');
+    const [activeTab, setActiveTab] = useState<'activity' | 'audit' | 'calendar'>('activity');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
 
@@ -276,45 +277,76 @@ export default function AdminFichajesPage() {
                 </div>
 
 
-                {/* Tab Switcher */}
-                <div className="flex p-1.5 bg-gray-100/50 backdrop-blur-sm rounded-2xl w-full border border-gray-200/30 mb-8">
+                {/* Tab Switcher - Distinct Components on One Line */}
+                <div className="flex gap-2 md:gap-4 mb-10 overflow-x-auto pb-2 no-scrollbar">
                     <button
                         onClick={() => setActiveTab('activity')}
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 px-4 md:px-8 py-2 md:py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-300",
+                            "flex-1 flex items-center justify-center gap-2 md:gap-3 px-3 md:px-6 py-3 md:py-4 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all duration-300 border-2 shrink-0",
                             activeTab === 'activity'
-                                ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
-                                : "text-gray-400 hover:text-gray-600"
+                                ? "bg-white text-primary border-primary/20 shadow-[0_10px_30px_rgba(99,102,241,0.15)] md:scale-105 z-10"
+                                : "bg-white/50 text-gray-400 border-gray-100 hover:border-gray-200 hover:text-gray-600 shadow-sm"
                         )}
                     >
-                        <ClipboardList size={16} />
+                        <div className={cn(
+                            "p-1 rounded-md md:rounded-lg transition-colors hidden xs:block",
+                            activeTab === 'activity' ? "bg-primary/10" : "bg-gray-100"
+                        )}>
+                            <ClipboardList size={14} className="md:w-4 md:h-4" />
+                        </div>
                         Global
                     </button>
+
                     <button
                         onClick={() => setActiveTab('audit')}
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 px-4 md:px-8 py-2 md:py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-300",
+                            "flex-1 flex items-center justify-center gap-2 md:gap-3 px-3 md:px-6 py-3 md:py-4 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all duration-300 border-2 shrink-0",
                             activeTab === 'audit'
-                                ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
-                                : "text-gray-400 hover:text-gray-600"
+                                ? "bg-white text-primary border-primary/20 shadow-[0_10px_30px_rgba(99,102,241,0.15)] md:scale-105 z-10"
+                                : "bg-white/50 text-gray-400 border-gray-100 hover:border-gray-200 hover:text-gray-600 shadow-sm"
                         )}
                     >
-                        <History size={16} />
+                        <div className={cn(
+                            "p-1 rounded-md md:rounded-lg transition-colors hidden xs:block",
+                            activeTab === 'audit' ? "bg-primary/10" : "bg-gray-100"
+                        )}>
+                            <History size={14} className="md:w-4 md:h-4" />
+                        </div>
                         Auditoría
+                    </button>
+
+                    <button
+                        onClick={() => setActiveTab('calendar')}
+                        className={cn(
+                            "flex-1 flex items-center justify-center gap-2 md:gap-3 px-3 md:px-6 py-3 md:py-4 rounded-2xl md:rounded-3xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all duration-300 border-2 shrink-0",
+                            activeTab === 'calendar'
+                                ? "bg-white text-primary border-primary/20 shadow-[0_10px_30px_rgba(99,102,241,0.15)] md:scale-105 z-10"
+                                : "bg-white/50 text-gray-400 border-gray-100 hover:border-gray-200 hover:text-gray-600 shadow-sm"
+                        )}
+                    >
+                        <div className={cn(
+                            "p-1 rounded-md md:rounded-lg transition-colors hidden xs:block",
+                            activeTab === 'calendar' ? "bg-primary/10" : "bg-gray-100"
+                        )}>
+                            <Calendar size={14} className="md:w-4 md:h-4" />
+                        </div>
+                        Calendario
                     </button>
                 </div>
 
                 {/* Date Selection Box - Centered between tabs and list */}
-                <div className="relative z-20 flex flex-col items-center justify-center gap-4 mb-8 bg-white/80 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2.5rem] border border-gray-100 shadow-sm mx-auto w-full max-w-xl animate-in fade-in slide-in-from-top-4 duration-700">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] leading-none">Filtrar por Período</p>
-                    <HistoryDateRangePicker
-                        startDate={filter.startDate || ''}
-                        endDate={filter.endDate || ''}
-                        onChange={(dates) => {
-                            setFilter(prev => ({ ...prev, startDate: dates.start, endDate: dates.end }));
-                        }}
-                    />
-                </div>
+                {activeTab !== 'calendar' && (
+                    <div className="relative z-20 flex flex-col items-center justify-center gap-4 mb-8 bg-white/80 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2.5rem] border border-gray-100 shadow-sm mx-auto w-full max-w-xl animate-in fade-in slide-in-from-top-4 duration-700">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] leading-none">Filtrar por Período</p>
+                        <HistoryDateRangePicker
+                            startDate={filter.startDate || ''}
+                            endDate={filter.endDate || ''}
+                            onChange={(dates) => {
+                                setFilter(prev => ({ ...prev, startDate: dates.start, endDate: dates.end }));
+                            }}
+                        />
+                    </div>
+                )}
 
                 {
                     activeTab === 'activity' ? (
@@ -341,11 +373,15 @@ export default function AdminFichajesPage() {
 
                             {renderPagination()}
                         </div>
-                    ) : (
+                    ) : activeTab === 'audit' ? (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <AuditHistoryList
                                 userId={selectedUsers.includes('0') ? undefined : selectedUsers[0]}
                             />
+                        </div>
+                    ) : (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <AttendanceCalendarView />
                         </div>
                     )
                 }

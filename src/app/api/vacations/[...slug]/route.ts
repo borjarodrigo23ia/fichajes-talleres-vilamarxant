@@ -93,12 +93,51 @@ async function handleRequest(request: NextRequest, params: { slug: string[] }, m
 
         // Return JSON if content-type is json, else text or success
         const contentType = response.headers.get('content-type');
+        let responseData: any = { success: true, message: 'Operación completada' };
+
         if (contentType && contentType.includes('application/json')) {
-            const data = await response.json();
-            return NextResponse.json(data);
-        } else {
-            return NextResponse.json({ success: true, message: 'Operación completada' });
+            responseData = await response.json();
         }
+
+        // --- Post-Success Notification Logic ---
+        if (response.ok && method === 'POST') {
+            const lastSegment = params.slug[params.slug.length - 1];
+            // Check for approve/reject actions
+            if (lastSegment === 'approve' || lastSegment === 'reject') {
+                const vacationId = params.slug[params.slug.length - 2];
+                // Run async without blocking response
+                (async () => {
+                    try {
+                        const { sendPushNotification } = await import('@/lib/push-sender');
+                        const { getUserPreferences } = await import('@/lib/push-db');
+
+                        // Fetch details to find user
+                        const detailsUrl = `${apiUrl}/fichajestrabajadoresapi/vacaciones/${vacationId}`;
+                        const detailsRes = await fetch(detailsUrl, { headers: { 'DOLAPIKEY': apiKey } });
+                        if (detailsRes.ok) {
+                            const details = await detailsRes.json();
+                            const userId = details.fk_user;
+
+                            if (userId) {
+                                const prefs = getUserPreferences(userId);
+                                if (prefs.vacaciones) {
+                                    const action = lastSegment === 'approve' ? 'Aprobada' : 'Rechazada';
+                                    await sendPushNotification(userId, {
+                                        title: `Vacaciones ${action}`,
+                                        body: `Tu solicitud de vacaciones ha sido ${action.toLowerCase()}.`,
+                                        url: '/vacaciones' // Or history
+                                    });
+                                }
+                            }
+                        }
+                    } catch (bgError) {
+                        console.error('Background notification error:', bgError);
+                    }
+                })();
+            }
+        }
+
+        return NextResponse.json(responseData);
 
     } catch (error: any) {
         console.error('API Vacations Proxy Error:', error);

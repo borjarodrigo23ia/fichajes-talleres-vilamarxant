@@ -173,7 +173,7 @@ export const TimerCard: React.FC<TimerCardProps> = ({
                     <button
                         onClick={() => handleAction(onEntrar)}
                         disabled={loading}
-                        className="group relative w-full py-5 md:py-6 rounded-2xl bg-[#AFF0BA] text-slate-800 font-bold text-lg md:text-xl shadow-[0_0_20px_rgba(175,240,186,0.4)] hover:shadow-[0_0_30px_rgba(175,240,186,0.6)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out touch-manipulation"
+                        className="group relative w-full py-5 md:py-6 rounded-2xl bg-[#AFF0BA] text-slate-800 font-bold text-lg md:text-xl shadow-[0_0_20px_rgba(175,240,186,0.4)] hover:shadow-[0_0_30px_rgba(175,240,186,0.6)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 ease-out touch-manipulation overflow-hidden will-change-transform"
                     >
                         <span className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         Entrar
@@ -188,14 +188,14 @@ export const TimerCard: React.FC<TimerCardProps> = ({
                         <button
                             onClick={() => handleAction(onPausa)}
                             disabled={loading}
-                            className="group relative py-5 md:py-6 rounded-2xl bg-[#FFEEA3] text-slate-800 font-bold text-base md:text-lg shadow-[0_0_20px_rgba(255,238,163,0.4)] hover:shadow-[0_0_30px_rgba(255,238,163,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 touch-manipulation"
+                            className="group relative py-5 md:py-6 rounded-2xl bg-[#FFEEA3] text-slate-800 font-bold text-base md:text-lg shadow-[0_0_20px_rgba(255,238,163,0.4)] hover:shadow-[0_0_30px_rgba(255,238,163,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 touch-manipulation overflow-hidden will-change-transform"
                         >
                             Pausar
                         </button>
                         <button
                             onClick={() => handleAction(onSalir)}
                             disabled={loading}
-                            className="group relative py-5 md:py-6 rounded-2xl bg-[#FF7A7A] text-white font-bold text-base md:text-lg shadow-[0_0_20px_rgba(255,122,122,0.4)] hover:shadow-[0_0_30px_rgba(255,122,122,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 touch-manipulation"
+                            className="group relative py-5 md:py-6 rounded-2xl bg-[#FF7A7A] text-white font-bold text-base md:text-lg shadow-[0_0_20px_rgba(255,122,122,0.4)] hover:shadow-[0_0_30px_rgba(255,122,122,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 touch-manipulation overflow-hidden will-change-transform"
                         >
                             Salir
                         </button>
@@ -207,14 +207,14 @@ export const TimerCard: React.FC<TimerCardProps> = ({
                         <button
                             onClick={() => handleAction(onPausa)} // This toggles back to resume in parent logic
                             disabled={loading}
-                            className="group relative py-5 md:py-6 rounded-2xl bg-[#ACE4F2] text-slate-800 font-bold text-base md:text-lg shadow-[0_0_20px_rgba(172,228,242,0.4)] hover:shadow-[0_0_30px_rgba(172,228,242,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 touch-manipulation"
+                            className="group relative py-5 md:py-6 rounded-2xl bg-[#ACE4F2] text-slate-800 font-bold text-base md:text-lg shadow-[0_0_20px_rgba(172,228,242,0.4)] hover:shadow-[0_0_30px_rgba(172,228,242,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 touch-manipulation overflow-hidden will-change-transform"
                         >
                             Reanudar
                         </button>
                         <button
                             onClick={() => handleAction(onSalir)}
                             disabled={loading}
-                            className="group relative py-5 md:py-6 rounded-2xl bg-[#FF7A7A] text-white font-bold text-base md:text-lg shadow-[0_0_20px_rgba(255,122,122,0.4)] hover:shadow-[0_0_30px_rgba(255,122,122,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 touch-manipulation"
+                            className="group relative py-5 md:py-6 rounded-2xl bg-[#FF7A7A] text-white font-bold text-base md:text-lg shadow-[0_0_20px_rgba(255,122,122,0.4)] hover:shadow-[0_0_30px_rgba(255,122,122,0.6)] hover:-translate-y-1 active:translate-y-0 transition-all duration-300 touch-manipulation overflow-hidden will-change-transform"
                         >
                             Salir
                         </button>
