@@ -63,6 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         user_mobile: userData.user_mobile,
                         admin: userData.admin === '1' || userData.admin === true
                     });
+
+                    // Extend session by updating login time on successful refresh
+                    localStorage.setItem('dolibarr_login_time', Date.now().toString());
                 } else {
                     const errDetail = await res.text();
                     console.error('Failed to fetch user profile:', res.status, errDetail);

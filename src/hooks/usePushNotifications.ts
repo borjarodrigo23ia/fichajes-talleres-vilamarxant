@@ -77,7 +77,13 @@ export default function PushNotificationManager() {
     };
 
     const subscribeToPush = async () => {
-        if (!user || !VAPID_PUBLIC_KEY) return;
+        if (!user) return;
+
+        if (!VAPID_PUBLIC_KEY) {
+            console.error('Missing VAPID_PUBLIC_KEY');
+            toast.error('Error: Falta configuración de notificaciones');
+            return;
+        }
 
         try {
             const registration = await navigator.serviceWorker.ready;
@@ -102,7 +108,7 @@ export default function PushNotificationManager() {
             toast.success('Notificaciones activadas');
         } catch (error) {
             console.error('Error subscribing to push:', error);
-            // toast.error('Error al activar notificaciones');
+            toast.error('Error al activar notificaciones');
         }
     };
 
