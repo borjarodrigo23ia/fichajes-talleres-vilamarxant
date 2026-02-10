@@ -344,8 +344,8 @@ export default function AuditHistoryList({ userId, limit }: AuditHistoryListProp
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-                <div className="fixed bottom-0 left-0 right-0 md:left-64 p-4 md:p-6 z-[60] mb-[74px] md:mb-0 pointer-events-none">
-                    <div className="flex items-center justify-between w-full max-w-lg mx-auto bg-white/40 backdrop-blur-2xl border border-white/50 p-3 px-6 rounded-full shadow-premium text-gray-500 font-medium pointer-events-auto transition-all duration-300">
+                <div className="w-full pt-8 mt-6 border-t border-gray-100/80 mb-10">
+                    <div className="flex items-center justify-between w-full max-w-lg mx-auto bg-white/40 backdrop-blur-2xl border border-white/50 p-3 px-6 rounded-full shadow-premium text-gray-500 font-medium transition-all duration-300">
                         <button
                             type="button"
                             onClick={() => {

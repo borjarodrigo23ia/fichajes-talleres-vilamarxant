@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const sortfield = searchParams.get('sortfield') || 'f.rowid';
         const sortorder = searchParams.get('sortorder') || 'DESC';
-        const limit = searchParams.get('limit') || '100';
+        const limit = searchParams.get('limit') || '1000';
         const page = searchParams.get('page') || '';
         const fkUser = searchParams.get('fk_user') || '';
         const dateStart = searchParams.get('date_start') || '';

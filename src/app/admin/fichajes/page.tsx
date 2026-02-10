@@ -123,8 +123,8 @@ export default function AdminFichajesPage() {
         }
 
         return (
-            <div className="mt-4 mb-2 flex items-center justify-center w-full">
-                <div className="flex items-center justify-between w-full max-w-lg mx-auto text-gray-500 font-medium p-2 px-4 transition-all duration-300">
+            <div className="w-full pt-4 mt-2 border-t border-gray-100/80 mb-10">
+                <div className="flex items-center justify-between w-full max-w-lg mx-auto text-gray-500 font-medium pb-2 transition-all duration-300">
                     <button
                         type="button"
                         aria-label="prev"
@@ -235,6 +235,18 @@ export default function AdminFichajesPage() {
                             className="z-50"
                             compact
                         />
+                        <button
+                            onClick={() => {
+                                setSelectedUsers(['0']);
+                                setFilter(({ startDate: '', endDate: '' }));
+                                setCurrentPage(1);
+                            }}
+                            className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2.5 rounded-xl transition-all shadow-sm flex items-center gap-2 font-bold text-[10px] uppercase tracking-wider"
+                            title="Limpiar todos los filtros"
+                        >
+                            <Filter className="w-4 h-4" />
+                            <span className="hidden xs:inline">Limpiar</span>
+                        </button>
                         <ExportActions
                             cycles={workCycles}
                             userName={selectedUsers.length === 1 && selectedUsers[0] !== '0' ? getLabel() : undefined}
@@ -376,7 +388,7 @@ export default function AdminFichajesPage() {
                     ) : activeTab === 'audit' ? (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <AuditHistoryList
-                                userId={selectedUsers.includes('0') ? undefined : selectedUsers[0]}
+                                userId={selectedUsers.includes('0') ? undefined : selectedUsers.join(',')}
                             />
                         </div>
                     ) : (
