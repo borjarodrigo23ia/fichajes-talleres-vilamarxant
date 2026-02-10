@@ -24,6 +24,8 @@ CREATE TABLE llx_fichajes_log(
     valor_anterior TEXT,
     valor_nuevo TEXT,
     comentario TEXT NOT NULL,
+    ip_address VARCHAR(45) DEFAULT NULL,
+    user_agent TEXT DEFAULT NULL,
     CONSTRAINT fk_fichajes_log_fichaje FOREIGN KEY (id_fichaje) REFERENCES llx_fichajestrabajadores(rowid) ON DELETE CASCADE,
     CONSTRAINT fk_fichajes_log_jornada FOREIGN KEY (id_jornada) REFERENCES llx_jornadas_completas(id_jornada) ON DELETE CASCADE,
     CONSTRAINT fk_fichajes_log_usuario FOREIGN KEY (usuario_editor) REFERENCES llx_user(rowid) ON DELETE CASCADE

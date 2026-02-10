@@ -52,8 +52,8 @@ class FichajesCorrections
     public $observaciones;
     public $estado; // pendiente, aprobada, rechazada
     public $fk_approver;
-    public $date_approval;
-    public $date_creation;
+    public $fecha_aprobacion;
+    public $fecha_creacion;
 
     /**
      * Constructor
@@ -81,8 +81,8 @@ class FichajesCorrections
         global $user;
 
         // Basic validation
-        if (empty($fk_user) || empty($fecha_jornada) || empty($hora_entrada) || empty($hora_salida)) {
-            $this->errors[] = "Missing required fields";
+        if (empty($fk_user) || empty($fecha_jornada) || (empty($hora_entrada) && empty($hora_salida))) {
+            $this->errors[] = "Missing required fields (entrada or salida must be provided)";
             return -1;
         }
 
@@ -93,19 +93,29 @@ class FichajesCorrections
         $this->pausas = json_encode($pausas);
         $this->observaciones = $observaciones;
         $this->estado = 'pendiente';
-        $this->date_creation = dol_now(); // server time
+        $this->fecha_creacion = dol_now(); // server time
 
         $sql = "INSERT INTO " . MAIN_DB_PREFIX . "fichajestrabajadores_corrections (";
-        $sql .= "fk_user, fecha_jornada, hora_entrada, hora_salida, pausas, observaciones, estado, date_creation";
+        $sql .= "fk_user, fecha_jornada, hora_entrada, hora_salida, pausas, observaciones, estado, fecha_creacion";
         $sql .= ") VALUES (";
         $sql .= (int) $this->fk_user . ",";
         $sql .= "'" . $this->db->escape($this->fecha_jornada) . "',";
-        $sql .= "'" . $this->db->escape($this->hora_entrada) . "',";
-        $sql .= "'" . $this->db->escape($this->hora_salida) . "',";
+        // Helper to format date for MySQL
+        $formatDate = function ($isoDate) {
+            if (empty($isoDate))
+                return 'NULL';
+            $ts = strtotime($isoDate);
+            if ($ts === false)
+                return 'NULL';
+            return "'" . $this->db->escape(date('Y-m-d H:i:s', $ts)) . "'";
+        };
+
+        $sql .= $formatDate($this->hora_entrada) . ",";
+        $sql .= $formatDate($this->hora_salida) . ",";
         $sql .= "'" . $this->db->escape($this->pausas) . "',";
         $sql .= "'" . $this->db->escape($this->observaciones) . "',";
         $sql .= "'pendiente',";
-        $sql .= "'" . $this->db->idate($this->date_creation) . "'";
+        $sql .= "'" . $this->db->idate($this->fecha_creacion) . "'";
         $sql .= ")";
 
         $resql = $this->db->query($sql);
@@ -141,8 +151,8 @@ class FichajesCorrections
                 $this->observaciones = $obj->observaciones;
                 $this->estado = $obj->estado;
                 $this->fk_approver = $obj->fk_approver;
-                $this->date_approval = $this->db->jdate($obj->date_approval);
-                $this->date_creation = $this->db->jdate($obj->date_creation);
+                $this->fecha_aprobacion = $this->db->jdate($obj->fecha_aprobacion);
+                $this->fecha_creacion = $this->db->jdate($obj->fecha_creacion);
                 return 1;
             }
             return 0;
@@ -172,7 +182,7 @@ class FichajesCorrections
         if (!empty($estado)) {
             $sql .= " AND c.estado = '" . $this->db->escape($estado) . "'";
         }
-        $sql .= " ORDER BY c.date_creation DESC";
+        $sql .= " ORDER BY c.fecha_creacion DESC";
 
         $resql = $this->db->query($sql);
         $ret = array();
@@ -233,8 +243,6 @@ class FichajesCorrections
         // In DB we stored as DATETIME (Y-m-d H:i:s), potentially local or UTC depending on how it was saved.
         // Assuming the input was correct, pass it as is, or convert to ISO8601
 
-        $entradaIso = str_replace(' ', 'T', $this->hora_entrada) . 'Z'; // Assuming inputs were UTC or we treat them as such
-        $salidaIso = str_replace(' ', 'T', $this->hora_salida) . 'Z';
 
         $pausasIso = array();
         foreach ($pausasArr as $p) {
@@ -247,15 +255,29 @@ class FichajesCorrections
             $pausasIso[] = array('inicio_iso' => $i, 'fin_iso' => $f);
         }
 
+        // Get requester info
+        $sqlReq = "SELECT firstname, lastname, login FROM " . MAIN_DB_PREFIX . "user WHERE rowid = " . (int) $this->fk_user;
+        $resReq = $this->db->query($sqlReq);
+        $objReq = $this->db->fetch_object($resReq);
+        $requesterName = $objReq ? ($objReq->firstname . ' ' . $objReq->lastname) : 'Usuario ' . $this->fk_user;
+
+        // Get approver info
+        $sqlApp = "SELECT firstname, lastname, login FROM " . MAIN_DB_PREFIX . "user WHERE rowid = " . (int) $fk_approver;
+        $resApp = $this->db->query($sqlApp);
+        $objApp = $this->db->fetch_object($resApp);
+        $approverName = $objApp ? ($objApp->firstname . ' ' . $objApp->lastname) : 'Admin ' . $fk_approver;
+
+        $auditMsg = "Corrección #$id. Solicitado: $requesterName. Aprobado: $approverName.";
+
         // Use the existing manual insertion logic which handles creating fichajes and the jornada completa
         $res = $fichaje->insertarJornadaManual(
             $userLogin,
             $this->fecha_jornada,
             $this->hora_entrada, // method supports "Y-m-d H:i:s" too usually, let's check
             $this->hora_salida,
-            $pausasArr,
-            "Corrección aprobada (ID: $id)",
-            $this->observaciones,
+            $pausasIso,
+            $auditMsg,
+            $this->observaciones, // obs_jornada
             $this->fk_user
         );
 

@@ -15,11 +15,15 @@ export async function GET(request: NextRequest) {
         const limit = searchParams.get('limit') || '100';
         const page = searchParams.get('page') || '';
         const fkUser = searchParams.get('fk_user') || '';
+        const dateStart = searchParams.get('date_start') || '';
+        const dateEnd = searchParams.get('date_end') || '';
 
         // Construir la URL base
         let url = `/fichajestrabajadoresapi/fichajes?sortfield=${sortfield}&sortorder=${sortorder}&limit=${limit}`;
         if (page) url += `&page=${page}`;
         if (fkUser) url += `&fk_user=${fkUser}`;
+        if (dateStart) url += `&date_start=${dateStart}`;
+        if (dateEnd) url += `&date_end=${dateEnd}`;
 
         const apiUrl = process.env.NEXT_PUBLIC_DOLIBARR_API_URL;
         if (!apiUrl) throw new Error('Dolibarr API URL not configured');
@@ -29,7 +33,8 @@ export async function GET(request: NextRequest) {
             headers: {
                 'Content-Type': 'application/json',
                 'DOLAPIKEY': apiKey
-            }
+            },
+            cache: 'no-store'
         });
 
         if (!response.ok) {

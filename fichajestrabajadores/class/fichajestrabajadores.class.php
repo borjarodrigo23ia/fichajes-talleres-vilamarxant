@@ -84,6 +84,16 @@ class FichajeTrabajador
     public $longitud;
 
     /**
+     * @var string Hash SHA-256 para verificación de integridad (cumplimiento legal 2026)
+     */
+    public $hash_integridad;
+
+    /**
+     * @var string Estado de aceptación por el trabajador (aceptado/pendiente/rechazado)
+     */
+    public $estado_aceptacion;
+
+    /**
      * Constructor
      *
      * @param DoliDB $db Database handler
@@ -304,8 +314,8 @@ class FichajeTrabajador
 
         $this->errors = array();
 
-        if (empty($usuario) || empty($fecha) || empty($entrada_iso) || empty($salida_iso)) {
-            $this->errors[] = 'Parámetros requeridos: usuario, fecha, entrada_iso, salida_iso';
+        if (empty($usuario) || empty($fecha) || (empty($entrada_iso) && empty($salida_iso))) {
+            $this->errors[] = 'Parámetros requeridos: usuario, fecha, y al menos entrada o salida';
             return array('success' => false, 'errors' => $this->errors);
         }
 
@@ -315,10 +325,16 @@ class FichajeTrabajador
         }
 
         // Convertir a timestamps para validar y calcular
-        $tsEntrada = strtotime($entrada_iso);
-        $tsSalida = strtotime($salida_iso);
-        if ($tsEntrada === false || $tsSalida === false || $tsSalida <= $tsEntrada) {
+        $tsEntrada = !empty($entrada_iso) ? strtotime($entrada_iso) : false;
+        $tsSalida = !empty($salida_iso) ? strtotime($salida_iso) : false;
+
+        if ($tsEntrada === false && $tsSalida === false) {
             $this->errors[] = 'Rango de entrada/salida inválido';
+            return array('success' => false, 'errors' => $this->errors);
+        }
+
+        if ($tsEntrada !== false && $tsSalida !== false && $tsSalida <= $tsEntrada) {
+            $this->errors[] = 'La salida debe ser posterior a la entrada';
             return array('success' => false, 'errors' => $this->errors);
         }
 
@@ -378,63 +394,128 @@ class FichajeTrabajador
             }
         }
 
-        $uid = $user_id ? $user_id : $user->id;
+        // Resolve user ID correctly
+        if ($user_id) {
+            $uid = $user_id;
+        } else {
+            // Try to resolve from login string
+            $sql_u = "SELECT rowid FROM " . MAIN_DB_PREFIX . "user WHERE login = '" . $this->db->escape($usuario) . "'";
+            $res_u = $this->db->query($sql_u);
+            if ($res_u && $this->db->num_rows($res_u) > 0) {
+                $obj_u = $this->db->fetch_object($res_u);
+                $uid = $obj_u->rowid;
+            } else {
+                // Fallback to current user (should rarely happen if validated)
+                $uid = $user->id;
+            }
+        }
+
+        // Determinar estado de aceptación (Ley Control Horario 2026)
+        // Si el usuario que edita NO es el trabajador, se marca como 'pendiente' de validación
+        if ($user->id != $uid) {
+            $this->estado_aceptacion = 'pendiente';
+            dol_syslog("FichajeTrabajador::insertarJornadaManual - Edición por tercero (Admin ID: {$user->id}, Target ID: {$uid}). Estado: pendiente", LOG_INFO);
+        } else {
+            $this->estado_aceptacion = 'aceptado';
+        }
+
+        // Soft delete existing records of the same type to avoid duplicates in calculation
+        // We append '_anulado' to the type so they are ignored by the calculator but preserved in DB
+        $dayStart = $fecha . ' 00:00:00';
+        $dayEnd = $fecha . ' 23:59:59';
+        $obsSuffix = " [ANULADO]";
+
+        // Helper to soft delete
+        $softDelete = function ($tipo) use ($uid, $dayStart, $dayEnd, $obsSuffix) {
+            $sqlUpd = "UPDATE " . MAIN_DB_PREFIX . "fichajestrabajadores";
+            $sqlUpd .= " SET tipo = CONCAT(tipo, '_anulado'), observaciones = CONCAT(IFNULL(observaciones,''), '" . $this->db->escape($obsSuffix) . "')";
+            $sqlUpd .= " WHERE fk_user = " . (int) $uid . " AND tipo = '" . $this->db->escape($tipo) . "'";
+            $sqlUpd .= " AND fecha_creacion >= '" . $this->db->escape($dayStart) . "' AND fecha_creacion <= '" . $this->db->escape($dayEnd) . "'";
+            $this->db->query($sqlUpd);
+        };
+
+        if (!empty($entrada_iso)) {
+            $softDelete('entrar');
+        }
+        if (!empty($salida_iso)) {
+            $softDelete('salir');
+        }
+        if (!empty($pausas_norm)) {
+            $softDelete('pausa');
+            $softDelete('finp');
+        }
 
         // Insertar fichajes
         $ids = array();
-        $ids[] = $this->insertarFichajeConFecha('entrar', $usuario, $obs_fichaje, $entrada_iso, $uid);
-        foreach ($pausas_norm as $p) {
-            $ids[] = $this->insertarFichajeConFecha('pausa', $usuario, $obs_fichaje, $p['inicio_iso'], $uid);
-            $ids[] = $this->insertarFichajeConFecha('finp', $usuario, $obs_fichaje, $p['fin_iso'], $uid);
-        }
-        $ids[] = $this->insertarFichajeConFecha('salir', $usuario, $obs_fichaje, $salida_iso, $uid);
-
-        foreach ($ids as $id) {
-            if ($id <= 0) {
-                $this->errors[] = 'Error al insertar fichajes manuales';
+        if (!empty($entrada_iso)) {
+            $res_e = $this->insertarFichajeConFecha('entrar', $usuario, $obs_fichaje, $entrada_iso, $uid);
+            if ($res_e > 0)
+                $ids[] = $res_e;
+            else {
+                $this->errors[] = 'Error al insertar fichaje de entrada';
                 return array('success' => false, 'errors' => $this->errors);
             }
         }
 
-        // Calcular totales
-        $totalPausaSeg = 0;
-        foreach ($pausas_norm as $p)
-            $totalPausaSeg += max(0, $p['fin'] - $p['inicio']);
-        $totalTrabajoSeg = max(0, ($tsSalida - $tsEntrada) - $totalPausaSeg);
+        foreach ($pausas_norm as $p) {
+            $res_p = $this->insertarFichajeConFecha('pausa', $usuario, $obs_fichaje, $p['inicio_iso'], $uid);
+            $res_f = $this->insertarFichajeConFecha('finp', $usuario, $obs_fichaje, $p['fin_iso'], $uid);
+            if ($res_p > 0)
+                $ids[] = $res_p;
+            if ($res_f > 0)
+                $ids[] = $res_f;
+        }
 
-        $total_pausa = sprintf('%02d:%02d:%02d', floor($totalPausaSeg / 3600), floor(($totalPausaSeg % 3600) / 60), $totalPausaSeg % 60);
-        $total_trabajo = sprintf('%02d:%02d:%02d', floor($totalTrabajoSeg / 3600), floor(($totalTrabajoSeg % 3600) / 60), $totalTrabajoSeg % 60);
+        if (!empty($salida_iso)) {
+            $res_s = $this->insertarFichajeConFecha('salir', $usuario, $obs_fichaje, $salida_iso, $uid);
+            if ($res_s > 0)
+                $ids[] = $res_s;
+            else {
+                $this->errors[] = 'Error al insertar fichaje de salida';
+                return array('success' => false, 'errors' => $this->errors);
+            }
+        }
 
-        // Crear o sustituir jornada completa del día
-        require_once DOL_DOCUMENT_ROOT . '/custom/fichajestrabajadores/class/jornadacompleta.class.php';
-        $jornada = new JornadaCompleta($this->db);
+        $jid = 0;
+        // Solo crear o sustituir jornada completa si tenemos ambos
+        if ($tsEntrada !== false && $tsSalida !== false) {
+            // Calcular totales
+            $totalPausaSeg = 0;
+            foreach ($pausas_norm as $p)
+                $totalPausaSeg += max(0, $p['fin'] - $p['inicio']);
+            $totalTrabajoSeg = max(0, ($tsSalida - $tsEntrada) - $totalPausaSeg);
 
-        // Prep dates for jornada
-        $tz = new DateTimeZone('Europe/Madrid');
-        $dateEntrada = new DateTime("@$tsEntrada");
-        $dateEntrada->setTimezone($tz);
-        $dateSalida = new DateTime("@$tsSalida");
-        $dateSalida->setTimezone($tz);
+            $total_pausa = sprintf('%02d:%02d:%02d', floor($totalPausaSeg / 3600), floor(($totalPausaSeg % 3600) / 60), $totalPausaSeg % 60);
+            $total_trabajo = sprintf('%02d:%02d:%02d', floor($totalTrabajoSeg / 3600), floor(($totalTrabajoSeg % 3600) / 60), $totalTrabajoSeg % 60);
 
-        // Borrar jornadas previas para ese usuario/fecha para evitar duplicados (si existían autocalculadas)
-        $sqlDel = "DELETE FROM " . MAIN_DB_PREFIX . "jornadas_completas WHERE usuario_id = " . ((int) $uid);
-        $sqlDel .= " AND fecha = '" . $this->db->escape($fecha) . "'";
-        $this->db->query($sqlDel);
+            require_once DOL_DOCUMENT_ROOT . '/custom/fichajestrabajadores/class/jornadacompleta.class.php';
+            $jornada = new JornadaCompleta($this->db);
 
-        $fecha_ts = dol_mktime(0, 0, 0, (int) substr($fecha, 5, 2), (int) substr($fecha, 8, 2), (int) substr($fecha, 0, 4));
-        $dataJ = array(
-            'fecha' => $fecha_ts,
-            'hora_entrada' => $dateEntrada->format('Y-m-d H:i:s'),
-            'hora_salida' => $dateSalida->format('Y-m-d H:i:s'),
-            'total_pausa' => $total_pausa,
-            'total_trabajo' => $total_trabajo,
-            'observaciones' => $obs_jornada
-        );
+            $tz = new DateTimeZone('Europe/Madrid');
+            $dateEntrada = new DateTime("@$tsEntrada");
+            $dateEntrada->setTimezone($tz);
+            $dateSalida = new DateTime("@$tsSalida");
+            $dateSalida->setTimezone($tz);
 
-        $jid = $jornada->create($uid, $dataJ);
-        if ($jid <= 0) {
-            $this->errors[] = 'Error al crear jornada completa manual';
-            return array('success' => false, 'errors' => $this->errors);
+            $sqlDel = "DELETE FROM " . MAIN_DB_PREFIX . "jornadas_completas WHERE usuario_id = " . ((int) $uid);
+            $sqlDel .= " AND fecha = '" . $this->db->escape($fecha) . "'";
+            $this->db->query($sqlDel);
+
+            $fecha_ts = dol_mktime(0, 0, 0, (int) substr($fecha, 5, 2), (int) substr($fecha, 8, 2), (int) substr($fecha, 0, 4));
+            $dataJ = array(
+                'fecha' => $fecha_ts,
+                'hora_entrada' => $dateEntrada->format('Y-m-d H:i:s'),
+                'hora_salida' => $dateSalida->format('Y-m-d H:i:s'),
+                'total_pausa' => $total_pausa,
+                'total_trabajo' => $total_trabajo,
+                'observaciones' => $obs_jornada
+            );
+
+            $jid = $jornada->create($uid, $dataJ);
+            if ($jid <= 0) {
+                $this->errors[] = 'Error al crear jornada completa manual';
+                return array('success' => false, 'errors' => $this->errors);
+            }
         }
 
         return array(
@@ -502,9 +583,12 @@ class FichajeTrabajador
             $now = new DateTime('now', $tz);
             $this->fecha_creacion = $now->format('Y-m-d H:i:s');
         }
+        // Calcular hash de integridad para cumplimiento legal
+        $hashData = $this->fk_user . '|' . $this->tipo . '|' . $this->fecha_creacion . '|' . $this->usuario;
+        $this->hash_integridad = hash('sha256', $hashData . getenv('INTEGRITY_SALT'));
 
         $sql = "INSERT INTO " . MAIN_DB_PREFIX . "fichajestrabajadores (";
-        $sql .= "fk_user, usuario, tipo, observaciones, fecha_creacion, latitud, longitud";
+        $sql .= "fk_user, usuario, tipo, observaciones, fecha_creacion, latitud, longitud, hash_integridad, estado_aceptacion";
         $sql .= ") VALUES (";
         $sql .= " " . (int) $this->fk_user . ",";
         $sql .= " '" . $this->db->escape($this->usuario) . "',";
@@ -512,7 +596,9 @@ class FichajeTrabajador
         $sql .= " '" . $this->db->escape($this->observaciones) . "',";
         $sql .= " '" . $this->db->escape($this->fecha_creacion) . "',";
         $sql .= " " . ($this->latitud ? "'" . $this->db->escape($this->latitud) . "'" : "NULL") . ",";
-        $sql .= " " . ($this->longitud ? "'" . $this->db->escape($this->longitud) . "'" : "NULL");
+        $sql .= " " . ($this->longitud ? "'" . $this->db->escape($this->longitud) . "'" : "NULL") . ",";
+        $sql .= " '" . $this->db->escape($this->hash_integridad) . "',";
+        $sql .= " '" . $this->db->escape($this->estado_aceptacion ? $this->estado_aceptacion : 'aceptado') . "'";
         $sql .= ")";
 
         dol_syslog("FichajeTrabajador::create - SQL Query: " . $sql, LOG_DEBUG);
@@ -543,18 +629,19 @@ class FichajeTrabajador
     /**
      * Carga todos los registros de fichajes
      *
-     * @param int $user_id ID del usuario para filtrar (opcional)
-     * @param bool $solo_usuario_actual Si es true, solo muestra fichajes del usuario actual
-     * @return array|int Array con los registros o -1 si error
+     * @param int    $user_id             ID de usuario
+     * @param bool   $solo_usuario_actual Solo usuario actual
+     * @param string $date_start          Fecha inicio
+     * @param string $date_end            Fecha fin
      */
-    public function getAllFichajes($user_id = 0, $solo_usuario_actual = false)
+    public function getAllFichajes($user_id = 0, $solo_usuario_actual = false, $date_start = '', $date_end = '')
     {
         global $user;
 
         $fichajes = array();
 
         // Construir la consulta SQL
-        $sql = "SELECT f.rowid, f.fk_user, f.usuario, f.tipo, f.observaciones, f.latitud, f.longitud, f.fecha_creacion,";
+        $sql = "SELECT f.rowid, f.fk_user, f.usuario, f.tipo, f.observaciones, f.latitud, f.longitud, f.fecha_creacion, f.estado_aceptacion,";
         $sql .= " u.firstname, u.lastname, u.login";
         $sql .= " FROM " . MAIN_DB_PREFIX . "fichajestrabajadores as f";
         $sql .= " LEFT JOIN " . MAIN_DB_PREFIX . "user as u ON f.fk_user = u.rowid";
@@ -565,6 +652,14 @@ class FichajeTrabajador
             $sql .= " AND f.fk_user = " . (int) $user_id;
         } elseif ($solo_usuario_actual && !$user->admin) {
             $sql .= " AND f.usuario = '" . $this->db->escape($user->login) . "'";
+        }
+
+        // Filtro por fecha (Ley 2026 / Requerimiento Auditoría)
+        if (!empty($date_start)) {
+            $sql .= " AND f.fecha_creacion >= '" . $this->db->escape($date_start) . " 00:00:00'";
+        }
+        if (!empty($date_end)) {
+            $sql .= " AND f.fecha_creacion <= '" . $this->db->escape($date_end) . " 23:59:59'";
         }
 
         $sql .= " ORDER BY f.fecha_creacion DESC";
@@ -586,6 +681,7 @@ class FichajeTrabajador
                 $fichaje->latitud = $obj->latitud;
                 $fichaje->longitud = $obj->longitud;
                 $fichaje->fecha_creacion = $obj->fecha_creacion;
+                $fichaje->estado_aceptacion = $obj->estado_aceptacion;
 
                 // Mostrar solo el login del usuario
                 $fichaje->usuario_nombre = $obj->login;
@@ -771,7 +867,8 @@ class FichajeTrabajador
                 'observaciones' => $obj->observaciones,
                 'fecha_creacion' => $this->db->jdate($obj->fecha_creacion),
                 'latitud' => $obj->latitud,
-                'longitud' => $obj->longitud
+                'longitud' => $obj->longitud,
+                'estado_aceptacion' => $obj->estado_aceptacion
             );
             $this->db->free($resql);
         } else {
@@ -809,6 +906,10 @@ class FichajeTrabajador
 
         if (isset($data['longitud'])) {
             $updateFields[] = "longitud = " . (float) $data['longitud'];
+        }
+
+        if (isset($data['estado_aceptacion'])) {
+            $updateFields[] = "estado_aceptacion = '" . $this->db->escape($data['estado_aceptacion']) . "'";
         }
 
         if (empty($updateFields)) {

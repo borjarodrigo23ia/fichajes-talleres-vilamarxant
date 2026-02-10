@@ -14,6 +14,7 @@ export type TimelineEvent = {
     lng?: string;
     dateStr: string; // YYYY-MM-DD for editing
     observaciones?: string;
+    estado_aceptacion?: string;
 };
 
 export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
@@ -41,7 +42,8 @@ export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
             color: '#AFF0BA', // Green
             cycleId,
             dateStr: cycleDateStr,
-            observaciones: cycle.entrada.observaciones // Added
+            observaciones: cycle.entrada.observaciones,
+            estado_aceptacion: cycle.entrada.estado_aceptacion
         });
 
         // Pausas
@@ -58,7 +60,8 @@ export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
                     color: '#FFEEA3', // Yellow
                     cycleId,
                     dateStr: cycleDateStr,
-                    observaciones: pausa.inicio.observaciones // Added
+                    observaciones: pausa.inicio.observaciones,
+                    estado_aceptacion: pausa.inicio.estado_aceptacion
                 });
 
                 if (pausa.fin) {
@@ -71,7 +74,8 @@ export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
                         color: '#ACE4F2', // Blue
                         cycleId,
                         dateStr: cycleDateStr,
-                        observaciones: pausa.fin.observaciones // Added
+                        observaciones: pausa.fin.observaciones,
+                        estado_aceptacion: pausa.fin.estado_aceptacion
                     });
                 }
             });
@@ -91,7 +95,8 @@ export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
                 color: '#FF7A7A', // Red
                 cycleId,
                 dateStr: cycleDateStr,
-                observaciones: cycle.salida.observaciones // Added
+                observaciones: cycle.salida.observaciones,
+                estado_aceptacion: cycle.salida.estado_aceptacion
             });
         }
     });

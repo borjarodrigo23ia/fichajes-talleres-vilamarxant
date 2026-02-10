@@ -5,7 +5,7 @@ import { WorkCycle } from '@/lib/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
-import { MapPinCheck, ChevronDown, ChevronUp, PencilLine } from 'lucide-react';
+import { MapPinCheck, ChevronDown, ChevronUp, PencilLine, CheckCircle, XCircle, Clock as ClockIcon } from 'lucide-react';
 import { getDailyEvents, TimelineEvent } from '@/lib/fichajes-utils';
 
 interface TodayFichajesProps {

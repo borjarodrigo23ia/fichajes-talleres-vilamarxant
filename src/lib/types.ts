@@ -29,6 +29,7 @@ export interface Fichaje {
   longitud?: string;
   fk_user?: string;
   usuario_nombre?: string;
+  estado_aceptacion?: 'pendiente' | 'aceptado' | 'rechazado';
 }
 
 export interface FichajeFilter {
@@ -50,6 +51,7 @@ export interface WorkCycle {
     observaciones?: string;
     latitud?: string;
     longitud?: string;
+    estado_aceptacion?: 'pendiente' | 'aceptado' | 'rechazado';
   };
   salida?: {
     fecha_creacion: string;
@@ -59,6 +61,7 @@ export interface WorkCycle {
     observaciones?: string;
     latitud?: string;
     longitud?: string;
+    estado_aceptacion?: 'pendiente' | 'aceptado' | 'rechazado';
   };
   pausas: Array<{
     inicio?: {
@@ -67,6 +70,7 @@ export interface WorkCycle {
       tipo: 'iniciar_pausa' | 'pausa';
       usuario: string;
       observaciones?: string;
+      estado_aceptacion?: 'pendiente' | 'aceptado' | 'rechazado';
     };
     fin?: {
       fecha_creacion: string;
@@ -74,6 +78,7 @@ export interface WorkCycle {
       tipo: 'terminar_pausa' | 'finp';
       usuario: string;
       observaciones?: string;
+      estado_aceptacion?: 'pendiente' | 'aceptado' | 'rechazado';
     };
   }>;
   fecha: string;

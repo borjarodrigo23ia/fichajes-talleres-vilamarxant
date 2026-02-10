@@ -81,10 +81,10 @@ export default function VacationCalendarView() {
 
     const getTypeColor = (tipo: string) => {
         switch (tipo) {
-            case 'vacaciones': return 'bg-blue-500';
-            case 'enfermedad': return 'bg-red-500';
-            case 'asuntos_propios': return 'bg-green-500';
-            default: return 'bg-gray-400';
+            case 'vacaciones': return '#9EE8FF';
+            case 'enfermedad': return '#EA9EFF';
+            case 'asuntos_propios': return '#FFCE8A';
+            default: return '#9ca3af';
         }
     };
 
@@ -176,26 +176,20 @@ export default function VacationCalendarView() {
                                     }
                                 `}
                             >
-                                <span className={`
-                                    text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full mb-1
-                                    ${isTodayDate ? 'bg-red-600 text-white shadow-lg shadow-red-200 dark:shadow-none' : 'text-gray-700 dark:text-gray-300'}
-                                `}>
+                                <span
+                                    className={`
+                                        text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full mb-1 transition-all
+                                        ${isTodayDate ? 'bg-red-600 text-white shadow-lg shadow-red-200 dark:shadow-none' : (absences.length > 0 ? 'text-zinc-900' : 'text-zinc-700 dark:text-zinc-300')}
+                                    `}
+                                    style={!isTodayDate && absences.length > 0 ? {
+                                        backgroundColor: getTypeColor(absences[0].tipo),
+                                        boxShadow: `0 4px 14px ${getTypeColor(absences[0].tipo)}80`
+                                    } : {}}
+                                >
                                     {format(day, 'd')}
                                 </span>
 
-                                {/* Absence Dots */}
-                                <div className="flex flex-wrap gap-1 justify-center px-1 w-full">
-                                    {absences.slice(0, 4).map((abs, i) => (
-                                        <div
-                                            key={i}
-                                            className={`w-1.5 h-1.5 rounded-full ${getTypeColor(abs.tipo)}`}
-                                            title={`${abs.usuario} - ${getTypeLabel(abs.tipo)}`}
-                                        />
-                                    ))}
-                                    {absences.length > 4 && (
-                                        <span className="text-[9px] text-gray-400 leading-none">+{absences.length - 4}</span>
-                                    )}
-                                </div>
+                                {/* Absences indicators removed as per request */}
                             </div>
                         );
                     })}
@@ -204,16 +198,16 @@ export default function VacationCalendarView() {
                 {/* Legend */}
                 <div className="flex flex-wrap items-center justify-center gap-4 mt-8 pt-6 border-t border-gray-100 dark:border-zinc-800">
                     <div className="flex items-center gap-2 text-xs">
-                        <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
-                        <span className="text-gray-500">Vacaciones</span>
+                        <div className="w-2.5 h-2.5 rounded-full shadow-xs" style={{ backgroundColor: '#9EE8FF' }}></div>
+                        <span className="text-gray-500 dark:text-gray-400">Vacaciones</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                        <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-                        <span className="text-gray-500">Asuntos Propios</span>
+                        <div className="w-2.5 h-2.5 rounded-full shadow-xs" style={{ backgroundColor: '#FFCE8A' }}></div>
+                        <span className="text-gray-500 dark:text-gray-400">Días Propios</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs">
-                        <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                        <span className="text-gray-500">Baja</span>
+                        <div className="w-2.5 h-2.5 rounded-full shadow-xs" style={{ backgroundColor: '#EA9EFF' }}></div>
+                        <span className="text-gray-500 dark:text-gray-400">Enfermedad</span>
                     </div>
                 </div>
             </div>
@@ -253,7 +247,10 @@ export default function VacationCalendarView() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2">
                                         <h5 className="font-bold text-gray-900 dark:text-white truncate">{abs.usuario}</h5>
-                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-md text-white ${getTypeColor(abs.tipo)}`}>
+                                        <span
+                                            className="text-[10px] font-bold px-2 py-1 rounded-md text-zinc-900 shadow-sm"
+                                            style={{ backgroundColor: getTypeColor(abs.tipo) }}
+                                        >
                                             {getTypeLabel(abs.tipo)}
                                         </span>
                                     </div>

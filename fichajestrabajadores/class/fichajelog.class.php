@@ -90,6 +90,16 @@ class FichajeLog
     public $comentario;
 
     /**
+     * @var string IP Address del cliente (para auditoría legal)
+     */
+    public $ip_address;
+
+    /**
+     * @var string User Agent del navegador (para auditoría legal)
+     */
+    public $user_agent;
+
+    /**
      * Constructor
      *
      * @param DoliDB $db Database handler
@@ -122,6 +132,10 @@ class FichajeLog
         $this->valor_nuevo = isset($data['valor_nuevo']) ? $data['valor_nuevo'] : '';
         $this->comentario = isset($data['comentario']) ? $data['comentario'] : '';
 
+        // Capturar IP y User-Agent automáticamente si no se proporcionan
+        $this->ip_address = isset($data['ip_address']) ? $data['ip_address'] : $this->getClientIP();
+        $this->user_agent = isset($data['user_agent']) ? $data['user_agent'] : $this->getClientUserAgent();
+
         // Validación básica
         if (empty($this->usuario_editor)) {
             $this->errors[] = 'Usuario editor no especificado';
@@ -153,7 +167,9 @@ class FichajeLog
         $sql .= " campo_modificado,";
         $sql .= " valor_anterior,";
         $sql .= " valor_nuevo,";
-        $sql .= " comentario";
+        $sql .= " comentario,";
+        $sql .= " ip_address,";
+        $sql .= " user_agent";
         $sql .= ") VALUES (";
         $sql .= " " . ($this->id_fichaje ? $this->id_fichaje : "NULL") . ",";
         $sql .= " " . ($this->id_jornada ? $this->id_jornada : "NULL") . ",";
@@ -161,7 +177,9 @@ class FichajeLog
         $sql .= " '" . $this->db->escape($this->campo_modificado) . "',";
         $sql .= " " . ($this->valor_anterior ? "'" . $this->db->escape($this->valor_anterior) . "'" : "NULL") . ",";
         $sql .= " " . ($this->valor_nuevo ? "'" . $this->db->escape($this->valor_nuevo) . "'" : "NULL") . ",";
-        $sql .= " '" . $this->db->escape($this->comentario) . "'";
+        $sql .= " '" . $this->db->escape($this->comentario) . "',";
+        $sql .= " " . ($this->ip_address ? "'" . $this->db->escape($this->ip_address) . "'" : "NULL") . ",";
+        $sql .= " " . ($this->user_agent ? "'" . $this->db->escape(substr($this->user_agent, 0, 500)) . "'" : "NULL");
         $sql .= ")";
 
         dol_syslog("FichajeLog::create - SQL: " . $sql, LOG_DEBUG);
@@ -191,14 +209,14 @@ class FichajeLog
     public function fetch($id)
     {
         $sql = "SELECT * FROM " . MAIN_DB_PREFIX . "fichajes_log WHERE id_log = " . (int) $id;
-        
+
         dol_syslog("FichajeLog::fetch - SQL: " . $sql, LOG_DEBUG);
-        
+
         $resql = $this->db->query($sql);
         if ($resql) {
             if ($this->db->num_rows($resql)) {
                 $obj = $this->db->fetch_object($resql);
-                
+
                 $this->id_log = $obj->id_log;
                 $this->id_fichaje = $obj->id_fichaje;
                 $this->id_jornada = $obj->id_jornada;
@@ -208,7 +226,7 @@ class FichajeLog
                 $this->valor_anterior = $obj->valor_anterior;
                 $this->valor_nuevo = $obj->valor_nuevo;
                 $this->comentario = $obj->comentario;
-                
+
                 $this->db->free($resql);
                 return 1;
             }
@@ -221,38 +239,49 @@ class FichajeLog
     }
 
     /**
-     * Obtiene todos los registros de auditoría para un fichaje o jornada
+     * Obtiene todos los registros de auditoría para un fichaje, jornada o usuario
      *
      * @param int $id_fichaje ID del fichaje (opcional)
      * @param int $id_jornada ID de la jornada (opcional)
+     * @param int $id_user    ID del usuario (opcional, para ver todos sus logs)
      * @return array|int Lista de logs o <0 si error
      */
-    public function getAllLogs($id_fichaje = 0, $id_jornada = 0)
+    public function getAllLogs($id_fichaje = 0, $id_jornada = 0, $id_user = 0)
     {
         $logs = array();
-        
+
         $sql = "SELECT l.*, u.firstname, u.lastname, u.login";
         $sql .= " FROM " . MAIN_DB_PREFIX . "fichajes_log as l";
         $sql .= " LEFT JOIN " . MAIN_DB_PREFIX . "user as u ON l.usuario_editor = u.rowid";
+
+        if ($id_user > 0 && $id_fichaje <= 0) {
+            $sql .= " LEFT JOIN " . MAIN_DB_PREFIX . "fichajestrabajadores as ft ON l.id_fichaje = ft.rowid";
+            $sql .= " LEFT JOIN " . MAIN_DB_PREFIX . "jornadas_completas as jc ON l.id_jornada = jc.id_jornada";
+        }
+
         $sql .= " WHERE 1=1";
-        
+
         if ($id_fichaje > 0) {
             $sql .= " AND l.id_fichaje = " . (int) $id_fichaje;
         }
-        
+
         if ($id_jornada > 0) {
             $sql .= " AND l.id_jornada = " . (int) $id_jornada;
         }
-        
+
+        if ($id_user > 0 && $id_fichaje <= 0) {
+            $sql .= " AND (ft.fk_user = " . (int) $id_user . " OR jc.usuario_id = " . (int) $id_user . ")";
+        }
+
         $sql .= " ORDER BY l.fecha_modificacion DESC";
-        
+
         dol_syslog("FichajeLog::getAllLogs - SQL: " . $sql, LOG_DEBUG);
-        
+
         $resql = $this->db->query($sql);
         if ($resql) {
             while ($obj = $this->db->fetch_object($resql)) {
                 $log = new FichajeLog($this->db);
-                
+
                 $log->id_log = $obj->id_log;
                 $log->id_fichaje = $obj->id_fichaje;
                 $log->id_jornada = $obj->id_jornada;
@@ -262,13 +291,13 @@ class FichajeLog
                 $log->valor_anterior = $obj->valor_anterior;
                 $log->valor_nuevo = $obj->valor_nuevo;
                 $log->comentario = $obj->comentario;
-                
+
                 // Datos del usuario
                 $log->usuario_nombre = trim($obj->firstname . ' ' . $obj->lastname) . ' (' . $obj->login . ')';
-                
+
                 $logs[] = $log;
             }
-            
+
             $this->db->free($resql);
             return $logs;
         } else {
@@ -276,4 +305,38 @@ class FichajeLog
             return -1;
         }
     }
-} 
+
+    /**
+     * Obtiene la IP del cliente (soporta proxies)
+     * @return string|null
+     */
+    private function getClientIP()
+    {
+        $headers = array(
+            'HTTP_CF_CONNECTING_IP', // Cloudflare
+            'HTTP_X_FORWARDED_FOR',
+            'HTTP_X_REAL_IP',
+            'REMOTE_ADDR'
+        );
+        foreach ($headers as $header) {
+            if (!empty($_SERVER[$header])) {
+                $ip = $_SERVER[$header];
+                // Si hay múltiples IPs (X-Forwarded-For), tomar la primera
+                if (strpos($ip, ',') !== false) {
+                    $ip = trim(explode(',', $ip)[0]);
+                }
+                return $ip;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Obtiene el User-Agent del cliente
+     * @return string|null
+     */
+    private function getClientUserAgent()
+    {
+        return isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : null;
+    }
+}

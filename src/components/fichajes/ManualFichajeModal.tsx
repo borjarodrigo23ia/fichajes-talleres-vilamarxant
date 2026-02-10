@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState, useEffect } from 'react';
-import { X, Plus, Trash2, Calendar, Clock, MessageSquare, Info, History } from 'lucide-react';
+import { X, Plus, Trash2, Calendar, Clock, MessageSquare, Info, History, ArrowRight } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,7 @@ export type ManualFichajePayload = {
     salida_iso: string;
     pausas: Array<{ inicio_iso: string; fin_iso: string }>;
     usuario?: string;
+    observaciones?: string;
 };
 
 function isValidDateStr(value: string) {
@@ -49,6 +50,18 @@ export default function ManualFichajeModal({
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [observaciones, setObservaciones] = useState('');
+    const [motivo, setMotivo] = useState('');
+
+    // Motivos de modificación para cumplimiento legal (Ley Control Horario 2026)
+    const MOTIVO_OPTIONS = [
+        { value: '', label: 'Selecciona un motivo...' },
+        { value: 'olvido', label: 'Olvido de fichaje' },
+        { value: 'error_tecnico', label: 'Error técnico del sistema' },
+        { value: 'salida_medica', label: 'Salida médica' },
+        { value: 'modificacion_horario', label: 'Modificación de horario' },
+        { value: 'error_usuario', label: 'Error del usuario al marcar' },
+        { value: 'otros', label: 'Otros (especificar en observaciones)' }
+    ];
 
     const isSimpleMode = !!targetEvent;
 
@@ -98,6 +111,9 @@ export default function ManualFichajeModal({
         for (let i = 1; i < sorted.length; i++) {
             if (sorted[i].inicio < sorted[i - 1].fin) return 'Las pausas no pueden solaparse.';
         }
+        // Legal compliance: motivo is mandatory
+        if (!motivo) return 'Debes seleccionar un motivo de la modificación (obligatorio por ley).';
+        if (motivo === 'otros' && !observaciones.trim()) return 'Debes especificar el motivo en las observaciones.';
         return null;
     };
 
@@ -128,6 +144,7 @@ export default function ManualFichajeModal({
                     salida_iso: salidaIso,
                     pausas: pausasPayload,
                     usuario: user?.login,
+                    observaciones: `[${MOTIVO_OPTIONS.find(m => m.value === motivo)?.label}] ${observaciones || "Edición manual por administrador"}`
                 };
 
                 const res = await fetch('/api/fichajes/manual', {
@@ -149,7 +166,7 @@ export default function ManualFichajeModal({
                     hora_entrada: entradaIso || null,
                     hora_salida: salidaIso || null,
                     pausas: pausasJson,
-                    observaciones: observaciones || `Solicitud de corrección para ${targetEvent?.label || 'jornada'}`
+                    observaciones: `[${MOTIVO_OPTIONS.find(m => m.value === motivo)?.label}] ${observaciones || `Solicitud de corrección para ${targetEvent?.label || 'jornada'}`}`
                 };
 
                 console.log('[ManualFichajeModal] Sending correction:', payload);
@@ -253,6 +270,24 @@ export default function ManualFichajeModal({
                         </p>
                     </div>
 
+                    {/* Motivo selector - Required by law */}
+                    <div className="mb-6 md:mb-8">
+                        <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 mb-2">
+                            <MessageSquare size={14} /> Motivo del cambio <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            value={motivo}
+                            onChange={(e) => setMotivo(e.target.value)}
+                            className="w-full bg-gray-50 border-none rounded-2xl px-5 py-3 md:py-4 text-sm md:text-base font-bold text-gray-900 focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer"
+                            required
+                        >
+                            {MOTIVO_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                        <p className="text-[10px] text-gray-400 mt-1 px-1">Obligatorio por Ley de Control Horario 2026</p>
+                    </div>
+
                     <div className="space-y-8">
                         {isSimpleMode ? (
                             /* Simple view */
@@ -264,13 +299,28 @@ export default function ManualFichajeModal({
                                             {format(new Date(fecha), "EEEE, d 'de' MMMM", { locale: es })}
                                         </span>
                                     </div>
-                                    <InputField
-                                        label={targetEvent?.label || 'Nueva hora'}
-                                        icon={<Clock size={16} />}
-                                        type="time"
-                                        value={targetEvent?.type === 'entrada' ? entrada : salida}
-                                        onChange={targetEvent?.type === 'entrada' ? setEntrada : setSalida}
-                                    />
+                                    <div className="flex items-end gap-3 md:gap-4">
+                                        <div className="flex-1 space-y-2 opacity-60 pointer-events-none">
+                                            <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
+                                                <Clock size={16} /> Actual
+                                            </label>
+                                            <div className="w-full bg-gray-100/50 border border-gray-100 rounded-2xl px-5 py-3 md:py-4 text-sm md:text-base h-12 md:h-14 font-bold text-gray-500 flex items-center tracking-tight">
+                                                {targetEvent ? format(targetEvent.time, 'HH:mm') : '--:--'}
+                                            </div>
+                                        </div>
+                                        <div className="pb-4 text-gray-300">
+                                            <ArrowRight className="w-5 h-5 md:w-6 md:h-6" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <InputField
+                                                label="Nueva"
+                                                icon={<Clock size={16} />}
+                                                type="time"
+                                                value={targetEvent?.type === 'entrada' ? entrada : salida}
+                                                onChange={targetEvent?.type === 'entrada' ? setEntrada : setSalida}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                                 {!user?.admin && (
                                     <div className="space-y-2">

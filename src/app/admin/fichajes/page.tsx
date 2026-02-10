@@ -8,17 +8,32 @@ import { useRouter } from 'next/navigation';
 import { HistoryList } from '@/components/fichajes/HistoryList';
 import { CheckboxDropdown } from '@/components/ui/CheckboxDropdown';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Filter, CalendarClock } from 'lucide-react';
+import { Filter, CalendarClock, History, ClipboardList } from 'lucide-react';
+import AuditHistoryList from '@/components/fichajes/AuditHistoryList';
+import { ExportActions } from '@/components/fichajes/ExportActions';
+import { HistoryDateRangePicker } from '@/components/fichajes/HistoryDateRangePicker';
+import { cn } from '@/lib/utils';
 
 export default function AdminFichajesPage() {
     const router = useRouter();
     const [selectedUsers, setSelectedUsers] = useState<string[]>(['0']);
     const { users, loading: loadingUsers } = useUsers();
 
+    const initialFilter = useMemo(() => {
+        const now = new Date();
+        const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const end = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
+        return { startDate: start, endDate: end };
+    }, []);
+
     // Pass comma-separated IDs to useFichajes
-    const { workCycles, loading } = useFichajes({
-        fkUser: selectedUsers.includes('0') ? '0' : selectedUsers.join(',')
+    const { workCycles, loading, setFilter, filter } = useFichajes({
+        fkUser: selectedUsers.includes('0') ? '0' : selectedUsers.join(','),
+        initialFilter
     });
+
+    const [activeTab, setActiveTab] = useState<'activity' | 'audit'>('activity');
 
     const handleUserToggle = (id: string) => {
         setSelectedUsers(prev => {
@@ -74,16 +89,23 @@ export default function AdminFichajesPage() {
                     showBack
                     isLive
                 >
-                    <CheckboxDropdown
-                        label={getLabel()}
-                        options={[
-                            { id: '0', label: 'Todos los empleados' },
-                            ...users.map(u => ({ id: u.id, label: `${u.firstname || u.login} ${u.lastname}` }))
-                        ]}
-                        selectedValues={selectedUsers}
-                        onToggle={handleUserToggle}
-                        className="z-50"
-                    />
+                    <div className="flex flex-nowrap items-center gap-3">
+                        <CheckboxDropdown
+                            label={getLabel()}
+                            options={[
+                                { id: '0', label: 'Todos los empleados' },
+                                ...users.map(u => ({ id: u.id, label: `${u.firstname || u.login} ${u.lastname}` }))
+                            ]}
+                            selectedValues={selectedUsers}
+                            onToggle={handleUserToggle}
+                            className="z-50"
+                            compact
+                        />
+                        <ExportActions
+                            cycles={workCycles}
+                            userName={selectedUsers.length === 1 && selectedUsers[0] !== '0' ? getLabel() : undefined}
+                        />
+                    </div>
                 </PageHeader>
 
 
@@ -120,28 +142,79 @@ export default function AdminFichajesPage() {
                     </div>
                 </div>
 
-                <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm relative">
-                    <div className="flex items-center gap-4 mb-8">
-                        <div className="p-3 bg-primary/5 text-primary rounded-2xl">
-                            <Filter size={20} />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-[#121726] tracking-tight mb-0.5">Actividad Reciente</h3>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                {selectedUsers.includes('0') ? 'Equipo completo' : `${selectedUsers.length} Empleados seleccionados`}
-                            </p>
-                        </div>
-                    </div>
 
-                    <HistoryList
-                        cycles={workCycles}
-                        loading={loading}
-                        showUserName={selectedUsers.includes('0') || selectedUsers.length > 1}
-                        isGlobal
+                {/* Tab Switcher */}
+                <div className="flex p-1.5 bg-gray-100/50 backdrop-blur-sm rounded-2xl w-full border border-gray-200/30 mb-8">
+                    <button
+                        onClick={() => setActiveTab('activity')}
+                        className={cn(
+                            "flex-1 flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-300",
+                            activeTab === 'activity'
+                                ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
+                                : "text-gray-400 hover:text-gray-600"
+                        )}
+                    >
+                        <ClipboardList size={16} />
+                        Global
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('audit')}
+                        className={cn(
+                            "flex-1 flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-300",
+                            activeTab === 'audit'
+                                ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
+                                : "text-gray-400 hover:text-gray-600"
+                        )}
+                    >
+                        <History size={16} />
+                        Auditoría
+                    </button>
+                </div>
+
+                {/* Date Selection Box - Centered between tabs and list */}
+                <div className="relative z-20 flex flex-col items-center justify-center gap-4 mb-8 bg-white/80 p-6 rounded-[2.5rem] border border-gray-100 shadow-sm mx-auto max-w-xl animate-in fade-in slide-in-from-top-4 duration-700">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] leading-none">Filtrar por Período</p>
+                    <HistoryDateRangePicker
+                        startDate={filter.startDate || ''}
+                        endDate={filter.endDate || ''}
+                        onChange={(dates) => {
+                            setFilter(prev => ({ ...prev, startDate: dates.start, endDate: dates.end }));
+                        }}
                     />
                 </div>
-            </main>
+
+                {
+                    activeTab === 'activity' ? (
+                        <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm relative animate-in fade-in duration-500">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="p-3 bg-primary/5 text-primary rounded-2xl">
+                                    <Filter size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-[#121726] tracking-tight mb-0.5">Actividad Reciente</h3>
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                        {selectedUsers.includes('0') ? 'Equipo completo' : `${selectedUsers.length} Empleados seleccionados`}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <HistoryList
+                                cycles={workCycles}
+                                loading={loading}
+                                showUserName={selectedUsers.includes('0') || selectedUsers.length > 1}
+                                isGlobal
+                            />
+                        </div>
+                    ) : (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <AuditHistoryList
+                                userId={selectedUsers.includes('0') ? undefined : selectedUsers[0]}
+                            />
+                        </div>
+                    )
+                }
+            </main >
             <MobileNav />
-        </div>
+        </div >
     );
 }

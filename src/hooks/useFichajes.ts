@@ -13,6 +13,7 @@ import { getCurrentPosition } from '@/lib/geolocation';
 
 export interface UseFichajesOptions {
     fkUser?: string | null;
+    initialFilter?: FichajeFilter;
 }
 
 export const useFichajes = (options?: UseFichajesOptions) => {
@@ -27,7 +28,7 @@ export const useFichajes = (options?: UseFichajesOptions) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [filter, setFilter] = useState<FichajeFilter>({});
+    const [filter, setFilter] = useState<FichajeFilter>(options?.initialFilter || {});
     const [currentState, setCurrentState] = useState<FichajeState>('sin_iniciar');
     const [workCycles, setWorkCycles] = useState<WorkCycle[]>([]);
     const [activeCycle, setActiveCycle] = useState<WorkCycle | null>(null);
@@ -184,10 +185,12 @@ export const useFichajes = (options?: UseFichajesOptions) => {
             } else if (targetFkUser && user?.admin) {
                 searchParams.set('fk_user', targetFkUser);
             } else if (user?.id) {
-                // Always filter by current user if no specific target is set and not explicitly requesting '0' (all)
-                // This prevents Admins from inadvertently seeing ALL records in the personal dashboard
                 searchParams.set('fk_user', user.id);
             }
+
+            // Filtros de fecha
+            if (filter.startDate) searchParams.set('date_start', filter.startDate);
+            if (filter.endDate) searchParams.set('date_end', filter.endDate);
 
             // ADDED: Obtener token del localStorage
             const token = typeof window !== 'undefined' ? localStorage.getItem('dolibarr_token') : '';
@@ -244,7 +247,7 @@ export const useFichajes = (options?: UseFichajesOptions) => {
             setIsLoading(false);
             setIsInitialLoad(false);
         }
-    }, [targetFkUser, user?.admin, user]);
+    }, [targetFkUser, user?.admin, user, filter]);
 
     useEffect(() => {
         fetchFichajes();

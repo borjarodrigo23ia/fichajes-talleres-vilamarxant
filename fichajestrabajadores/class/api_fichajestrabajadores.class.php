@@ -53,17 +53,6 @@ class FichajestrabajadoresApi extends DolibarrApi
         $this->db = $db;
     }
 
-    /**
-     * Get user info
-     *
-     * @return array
-     *
-     * @url GET /info
-     */
-    public function info()
-    {
-        return $this->_cleanObjectDatas(DolibarrApiAccess::$user);
-    }
 
     /**
      * List fichajes
@@ -82,7 +71,7 @@ class FichajestrabajadoresApi extends DolibarrApi
      *
      * @throws RestException
      */
-    public function index($sortfield = "f.rowid", $sortorder = 'ASC', $limit = 100, $page = 0, $sqlfilters = '', $fk_user = 0)
+    public function index($sortfield = "f.rowid", $sortorder = 'ASC', $limit = 100, $page = 0, $sqlfilters = '', $fk_user = 0, $date_start = '', $date_end = '')
     {
         global $db, $conf;
 
@@ -127,8 +116,18 @@ class FichajestrabajadoresApi extends DolibarrApi
                 $userId = (int) $_GET['fk_user'];
             }
 
-            // Obtener todos los fichajes (opcionalmente filtrados por usuario)
-            $fichajes = $fichaje->getAllFichajes($userId);
+            // SEGURIDAD: Si no es admin, forzar el filtro al usuario actual
+            if (!DolibarrApiAccess::$user->admin) {
+                $userId = DolibarrApiAccess::$user->id;
+            }
+
+            $date_start = !empty($date_start) ? $date_start : (!empty($_GET['date_start']) ? $_GET['date_start'] : '');
+            $date_end = !empty($date_end) ? $date_end : (!empty($_GET['date_end']) ? $_GET['date_end'] : '');
+
+            dol_syslog("FichajestrabajadoresApi::index - fk_user: " . $userId . ", date_start: " . $date_start . ", date_end: " . $date_end, LOG_DEBUG);
+
+            // Obtener todos los fichajes (opcionalmente filtrados por usuario y fecha)
+            $fichajes = $fichaje->getAllFichajes($userId, false, $date_start, $date_end);
 
             if (is_array($fichajes)) {
                 // Aplicar paginación si se solicita
@@ -1294,7 +1293,7 @@ class FichajestrabajadoresApi extends DolibarrApi
      *
      * @url GET /info
      */
-    public function getInfo()
+    public function info()
     {
         global $user;
         if (empty($user->id)) {
@@ -1629,5 +1628,195 @@ class FichajestrabajadoresApi extends DolibarrApi
         }
 
         throw new RestException(500, 'Error al obtener el registro: ' . $db->lasterror());
+    }
+
+    /**
+     * Get pending validation fichajes for current user
+     *
+     * @return array
+     *
+     * @url GET /fichajes/pending
+     *
+     * @throws RestException
+     */
+    public function getPendingValidation()
+    {
+        global $db, $user;
+
+        if (!$user->id) {
+            throw new RestException(401, 'Unauthorized');
+        }
+
+        require_once DOL_DOCUMENT_ROOT . '/custom/fichajestrabajadores/class/fichajestrabajadores.class.php';
+        $fichaje = new FichajeTrabajador($db);
+
+        $res = $fichaje->getPendingValidationFichajes($user->id);
+
+        if (is_array($res)) {
+            return $res;
+        } else {
+            throw new RestException(500, 'Error getting pending fichajes: ' . $fichaje->error);
+        }
+    }
+
+    /**
+     * Accept admin change
+     *
+     * @param int $id Fichaje ID
+     * @return array
+     *
+     * @url POST /fichajes/{id}/accept
+     *
+     * @throws RestException
+     */
+    public function acceptChange($id)
+    {
+        global $db, $user;
+
+        if (!$user->id) {
+            throw new RestException(401, 'Unauthorized');
+        }
+
+        require_once DOL_DOCUMENT_ROOT . '/custom/fichajestrabajadores/class/fichajestrabajadores.class.php';
+        $fichaje = new FichajeTrabajador($db);
+
+        // Verify ownership
+        $sql = "SELECT fk_user FROM " . MAIN_DB_PREFIX . "fichajestrabajadores WHERE rowid = " . (int) $id;
+        $res = $db->query($sql);
+        if ($res && $db->num_rows($res) > 0) {
+            $obj = $db->fetch_object($res);
+            if ($obj->fk_user != $user->id) {
+                throw new RestException(403, 'Forbidden: You can only accept changes for your own records');
+            }
+        } else {
+            throw new RestException(404, 'Record not found');
+        }
+
+        $res = $fichaje->update($id, array('estado_aceptacion' => 'aceptado'), 'Cambio aceptado por el trabajador');
+        if ($res > 0) {
+            return array('success' => true, 'message' => 'Cambio aceptado correctamente');
+        } else {
+            throw new RestException(500, 'Error updating record: ' . $fichaje->error);
+        }
+    }
+
+    /**
+     * Reject admin change
+     *
+     * @param int $id Fichaje ID
+     * @return array
+     *
+     * @url POST /fichajes/{id}/reject
+     * 
+     * @throws RestException
+     */
+    public function rejectChange($id)
+    {
+        global $db, $user;
+
+        if (!$user->id) {
+            throw new RestException(401, 'Unauthorized');
+        }
+
+        require_once DOL_DOCUMENT_ROOT . '/custom/fichajestrabajadores/class/fichajestrabajadores.class.php';
+        $fichaje = new FichajeTrabajador($db);
+
+        // Verify ownership
+        $sql = "SELECT fk_user FROM " . MAIN_DB_PREFIX . "fichajestrabajadores WHERE rowid = " . (int) $id;
+        $res = $db->query($sql);
+        if ($res && $db->num_rows($res) > 0) {
+            $obj = $db->fetch_object($res);
+            if ($obj->fk_user != $user->id) {
+                throw new RestException(403, 'Forbidden: You can only reject changes for your own records');
+            }
+        } else {
+            throw new RestException(404, 'Record not found');
+        }
+
+        $res = $fichaje->update($id, array('estado_aceptacion' => 'rechazado'), 'Cambio rechazado por el trabajador');
+        if ($res > 0) {
+            return array('success' => true, 'message' => 'Cambio rechazado correctamente');
+        } else {
+            throw new RestException(500, 'Error updating record: ' . $fichaje->error);
+        }
+    }
+
+    /**
+     * Get history of changes for a fichaje
+     *
+     * @param int $id Fichaje ID
+     * @return array
+     *
+     * @url GET /fichajes/{id}/history
+     *
+     * @throws RestException
+     */
+    public function getHistory($id)
+    {
+        global $db, $user;
+
+        if (!$user->id) {
+            throw new RestException(401, 'Unauthorized');
+        }
+
+        // Verify ownership or admin
+        $sql = "SELECT fk_user FROM " . MAIN_DB_PREFIX . "fichajestrabajadores WHERE rowid = " . (int) $id;
+        $res = $db->query($sql);
+        if ($res && $db->num_rows($res) > 0) {
+            $obj = $db->fetch_object($res);
+            if ($obj->fk_user != $user->id && !$user->admin) {
+                throw new RestException(403, 'Forbidden: You can only view history for your own records');
+            }
+        } else {
+            throw new RestException(404, 'Record not found');
+        }
+
+        require_once DOL_DOCUMENT_ROOT . '/custom/fichajestrabajadores/class/fichajelog.class.php';
+        $log = new FichajeLog($db);
+
+        $res = $log->getAllLogs($id);
+
+        if (is_array($res)) {
+            return $res;
+        } else {
+            throw new RestException(500, 'Error getting history: ' . $log->error);
+        }
+    }
+
+    /**
+     * Get global audit logs (filtered by user for workers, all for admins)
+     *
+     * @param int $id_user Optional user filter for admins
+     * @return array
+     *
+     * @url GET /fichajes/history
+     *
+     * @throws RestException
+     */
+    public function getAuditLogs($id_user = 0)
+    {
+        global $db, $user;
+
+        if (!$user->id) {
+            throw new RestException(401, 'Unauthorized');
+        }
+
+        require_once DOL_DOCUMENT_ROOT . '/custom/fichajestrabajadores/class/fichajelog.class.php';
+        $log = new FichajeLog($db);
+
+        $filterUser = 0;
+        if (!$user->admin) {
+            $filterUser = $user->id;
+        } elseif ($id_user > 0) {
+            $filterUser = $id_user;
+        }
+
+        $res = $log->getAllLogs(0, 0, $filterUser);
+
+        if (is_array($res)) {
+            return $res;
+        } else {
+            throw new RestException(500, 'Error getting audit logs: ' . $log->error);
+        }
     }
 }

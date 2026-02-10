@@ -20,6 +20,7 @@ interface CheckboxDropdownProps {
     selectedValues: string[];
     onToggle: (id: string) => void;
     className?: string;
+    compact?: boolean;
 }
 
 export const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
@@ -27,7 +28,8 @@ export const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
     options,
     selectedValues,
     onToggle,
-    className
+    className,
+    compact = false
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -51,22 +53,25 @@ export const CheckboxDropdown: React.FC<CheckboxDropdownProps> = ({
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
-                    "group flex items-center justify-between gap-6 px-10 py-3.5 rounded-2xl transition-all duration-300 border focus:outline-none focus:ring-4 focus:ring-primary/10",
+                    "group flex items-center justify-between transition-all duration-300 border focus:outline-none focus:ring-4 focus:ring-primary/10",
+                    compact ? "gap-2 px-5 py-3 rounded-xl" : "gap-6 px-10 py-3.5 rounded-2xl",
                     isOpen
                         ? "bg-white text-[#121726] border-primary shadow-lg ring-2 ring-primary/5"
                         : "bg-white text-gray-700 border-gray-200 shadow-sm hover:border-primary/30 hover:shadow-md active:scale-95"
                 )}
             >
-                <div className="flex items-center gap-4">
+                <div className={cn("flex items-center", compact ? "gap-2" : "gap-4")}>
                     <div className={cn(
-                        "w-2.5 h-2.5 rounded-full ring-2 ring-offset-2 transition-all",
+                        "rounded-full ring-2 ring-offset-2 transition-all",
+                        compact ? "w-1.5 h-1.5" : "w-2.5 h-2.5",
                         isAllSelected ? "bg-green-500 ring-green-100 scale-110" : (selectedCount > 0 ? "bg-green-500 ring-green-100 scale-110" : "bg-gray-300 ring-transparent")
                     )} />
-                    <span className="text-sm font-black tracking-tight uppercase whitespace-nowrap">{label}</span>
+                    <span className={cn("font-black tracking-tight uppercase whitespace-nowrap", compact ? "text-[10px]" : "text-sm")}>{label}</span>
                 </div>
                 <ChevronDown
                     className={cn(
-                        "w-5 h-5 transition-transform duration-300",
+                        "transition-transform duration-300",
+                        compact ? "w-3 h-3" : "w-5 h-5",
                         isOpen ? "rotate-180 opacity-100" : "opacity-40 group-hover:opacity-100"
                     )}
                 />

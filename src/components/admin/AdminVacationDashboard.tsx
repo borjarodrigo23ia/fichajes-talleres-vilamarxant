@@ -57,16 +57,16 @@ export default function AdminVacationDashboard() {
 
     const getTypeColor = (tipo: string) => {
         switch (tipo) {
-            case 'enfermedad': return 'text-red-600 bg-red-50 dark:bg-red-900/20';
-            case 'asuntos_propios': return 'text-purple-600 bg-purple-50 dark:bg-purple-900/20';
-            default: return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20';
+            case 'enfermedad': return 'text-zinc-900 bg-[#EA9EFF]';
+            case 'asuntos_propios': return 'text-zinc-900 bg-[#FFCE8A]';
+            default: return 'text-zinc-900 bg-[#9EE8FF]';
         }
     };
 
     const getTypeLabel = (tipo: string) => {
         switch (tipo) {
             case 'enfermedad': return 'Baja / Enfermedad';
-            case 'asuntos_propios': return 'Asuntos Propios';
+            case 'asuntos_propios': return 'Días Propios';
             default: return 'Vacaciones';
         }
     };

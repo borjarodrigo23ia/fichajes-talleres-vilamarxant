@@ -2,8 +2,19 @@ import React, { useState, useMemo } from 'react';
 import { WorkCycle } from '@/lib/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronDown, ChevronUp, MapPinCheck, CalendarClock, PencilLine } from 'lucide-react';
+import {
+    ChevronDown,
+    ChevronUp,
+    MapPinCheck,
+    CalendarClock,
+    PencilLine,
+    CheckCircle,
+    XCircle,
+    Clock as ClockIcon,
+    History as HistoryIcon
+} from 'lucide-react';
 import { getDailyEvents, TimelineEvent } from '@/lib/fichajes-utils';
+import { toast } from 'react-hot-toast';
 
 interface DayHistoryCardProps {
     date: string;
@@ -196,18 +207,29 @@ const SessionItem = ({ cycle, index, formatTime, showUserName = false, onEdit, i
                                         {event.observaciones}
                                     </div>
                                 )}
-                                {!isGlobal && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onEdit?.(event);
-                                        }}
-                                        title="Solicitar corrección"
-                                        className="p-1.5 rounded-lg bg-gray-50 text-gray-400 hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
-                                    >
-                                        <PencilLine size={12} />
-                                    </button>
+
+                                {event.estado_aceptacion && (
+                                    <div className="flex items-center" title={`Estado: ${event.estado_aceptacion}`}>
+                                        {event.estado_aceptacion === 'aceptado' && <CheckCircle size={14} className="text-emerald-500" />}
+                                        {event.estado_aceptacion === 'pendiente' && <ClockIcon size={14} className="text-amber-500 animate-pulse" />}
+                                        {event.estado_aceptacion === 'rechazado' && <XCircle size={14} className="text-red-500" />}
+                                    </div>
                                 )}
+
+                                <div className="flex items-center gap-1">
+                                    {!isGlobal && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onEdit?.(event);
+                                            }}
+                                            title="Solicitar corrección"
+                                            className="p-1.5 rounded-lg bg-gray-50 text-gray-400 hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
+                                        >
+                                            <PencilLine size={12} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

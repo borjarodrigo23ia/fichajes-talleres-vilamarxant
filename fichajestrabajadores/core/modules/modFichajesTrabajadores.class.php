@@ -90,8 +90,8 @@ class modFichajesTrabajadores extends DolibarrModules
             'hooks' => array(),                         // Set here all hooks context managed by module
             'moduleforexternal' => 0,                   // Set this to 1 if features of module are opened to external users
             'api' => array(
-                'class' => array('FichajesTrabajadoresApi'),
-                'path' => array('/fichajestrabajadores/class/api/'),
+                'class' => array('FichajestrabajadoresApi'),
+                'path' => array('/fichajestrabajadores/class/'),
             ),
         );
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useVacationDays } from '@/hooks/useVacationDays';
 import { useUsers } from '@/hooks/useUsers';
-import { Calendar, Users, Check, Search, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { CalendarRange, Users, Check, Search, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
 export default function VacationDaysBulkAssign() {
     const currentYear = new Date().getFullYear();
@@ -87,18 +87,18 @@ export default function VacationDaysBulkAssign() {
 
     return (
         <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 border border-gray-100 dark:border-zinc-800 shadow-sm">
-            <div className="flex items-center gap-3 mb-8">
-                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
-                    <Calendar className="w-6 h-6" />
-                </div>
-                <div>
+            <div className="mb-8">
+                <div className="flex items-center gap-1 mb-0">
+                    <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shrink-0">
+                        <CalendarRange className="w-6 h-6" />
+                    </div>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                         Asignar Días de Vacaciones
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Asigna días masivamente a múltiples empleados
-                    </p>
                 </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 ml-2 -mt-2">
+                    Asigna días masivamente a múltiples empleados
+                </p>
             </div>
 
             {/* Year and Days Input */}

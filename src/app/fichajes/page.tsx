@@ -13,6 +13,7 @@ import { Settings, SquarePen, ClockFading } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { TimelineEvent } from '@/lib/fichajes-utils';
 import InstallPrompt from '@/components/pwa/InstallPrompt';
+import AdminChangeRequestModal from '@/components/fichajes/AdminChangeRequestModal';
 
 export default function FichajesPage() {
     const { user } = useAuth();
@@ -124,6 +125,7 @@ export default function FichajesPage() {
                     initialDate={selectedDate}
                     targetEvent={targetEvent}
                 />
+                <AdminChangeRequestModal />
             </main>
             <MobileNav />
         </div>

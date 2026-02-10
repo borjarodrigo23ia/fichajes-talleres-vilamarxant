@@ -5,10 +5,11 @@ import { useFichajes } from '@/hooks/useFichajes';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
 import { HistoryList } from '@/components/fichajes/HistoryList';
-import { ArrowLeft, CalendarClock } from 'lucide-react';
+import { ArrowLeft, CalendarClock, History, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/PageHeader';
 import ManualFichajeModal from '@/components/fichajes/ManualFichajeModal';
+import AuditHistoryList from '@/components/fichajes/AuditHistoryList';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 import { HistoryDateRangePicker } from '@/components/fichajes/HistoryDateRangePicker';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,7 @@ export default function HistorialPage() {
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
     const [targetEvent, setTargetEvent] = useState<TimelineEvent | undefined>(undefined);
+    const [activeTab, setActiveTab] = useState<'activity' | 'audit'>('activity');
 
     // Filters state - Default to Current Month
     const [startDate, setStartDate] = useState<string>(() => {
@@ -198,30 +200,66 @@ export default function HistorialPage() {
                 />
 
                 <div className="max-w-5xl space-y-8">
-                    {/* Filters - Exact Custom Component Design */}
-                    <div className="flex flex-col gap-4">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none ml-1">
-                            Filtrar por Rango de Fechas
-                        </span>
-
-                        <HistoryDateRangePicker
-                            startDate={startDate}
-                            endDate={endDate}
-                            onChange={(dates) => {
-                                setStartDate(dates.start);
-                                setEndDate(dates.end);
-                            }}
-                        />
+                    {/* Tab Switcher */}
+                    <div className="flex p-1.5 bg-gray-100/50 backdrop-blur-sm rounded-2xl w-full border border-gray-200/30">
+                        <button
+                            onClick={() => setActiveTab('activity')}
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-300",
+                                activeTab === 'activity'
+                                    ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
+                                    : "text-gray-400 hover:text-gray-600"
+                            )}
+                        >
+                            <ClipboardList size={16} />
+                            Actividad
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('audit')}
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-300",
+                                activeTab === 'audit'
+                                    ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
+                                    : "text-gray-400 hover:text-gray-600"
+                            )}
+                        >
+                            <History size={16} />
+                            Cambios
+                        </button>
                     </div>
 
-                    <HistoryList
-                        cycles={paginatedCycles}
-                        loading={loading}
-                        title="Historial de Jornadas"
-                        onEdit={handleEdit}
-                    />
+                    {activeTab === 'activity' ? (
+                        <>
+                            {/* Filters - Exact Custom Component Design */}
+                            <div className="flex flex-col gap-4">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none ml-1">
+                                    Filtrar por Rango de Fechas
+                                </span>
 
-                    {renderPagination()}
+                                <HistoryDateRangePicker
+                                    startDate={startDate}
+                                    endDate={endDate}
+                                    onChange={(dates) => {
+                                        setStartDate(dates.start);
+                                        setEndDate(dates.end);
+                                    }}
+                                />
+                            </div>
+
+                            <HistoryList
+                                cycles={paginatedCycles}
+                                loading={loading}
+                                title="Historial de Jornadas"
+                                onEdit={handleEdit}
+                            />
+
+                            {renderPagination()}
+                        </>
+                    ) : (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <AuditHistoryList userId={user?.id} />
+                        </div>
+                    )}
                 </div>
 
                 <ManualFichajeModal

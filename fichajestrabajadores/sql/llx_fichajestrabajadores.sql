@@ -21,6 +21,8 @@ CREATE TABLE llx_fichajestrabajadores(
     observaciones VARCHAR(255) DEFAULT NULL,
     latitud DECIMAL(10,7) DEFAULT NULL,
     longitud DECIMAL(10,7) DEFAULT NULL,
+    hash_integridad VARCHAR(64) DEFAULT NULL,
+    estado_aceptacion VARCHAR(20) DEFAULT 'aceptado', -- aceptado, pendiente, rechazado
     fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP
     -- END MODULEBUILDER FIELDS
 ) ENGINE=innodb; 
