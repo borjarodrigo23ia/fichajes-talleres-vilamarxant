@@ -222,25 +222,7 @@ export default function AdminFichajesPage() {
                     icon={CalendarClock}
                     showBack
                     isLive
-                >
-                    <div className="flex flex-nowrap items-center gap-1.5 md:gap-3">
-                        <CheckboxDropdown
-                            label={getLabel()}
-                            options={[
-                                { id: '0', label: 'Todos los empleados' },
-                                ...users.map(u => ({ id: u.id, label: `${u.firstname || u.login} ${u.lastname}` }))
-                            ]}
-                            selectedValues={selectedUsers}
-                            onToggle={handleUserToggle}
-                            className="z-50"
-                            compact
-                        />
-                        <ExportActions
-                            cycles={workCycles}
-                            userName={selectedUsers.length === 1 && selectedUsers[0] !== '0' ? getLabel() : undefined}
-                        />
-                    </div>
-                </PageHeader>
+                />
 
 
                 {/* Stats Section - Small Square Badges with Visible Color Accents */}
@@ -345,6 +327,25 @@ export default function AdminFichajesPage() {
                                 setFilter(prev => ({ ...prev, startDate: dates.start, endDate: dates.end }));
                             }}
                         />
+
+                        {/* Employee Filter & Export Actions - Moved here */}
+                        <div className="flex flex-wrap items-center justify-center gap-3 mt-2 pt-4 border-t border-gray-100 w-full">
+                            <CheckboxDropdown
+                                label={getLabel()}
+                                options={[
+                                    { id: '0', label: 'Todos los empleados' },
+                                    ...users.map(u => ({ id: u.id, label: `${u.firstname || u.login} ${u.lastname}` }))
+                                ]}
+                                selectedValues={selectedUsers}
+                                onToggle={handleUserToggle}
+                                className="z-50"
+                                compact
+                            />
+                            <ExportActions
+                                cycles={workCycles}
+                                userName={selectedUsers.length === 1 && selectedUsers[0] !== '0' ? getLabel() : undefined}
+                            />
+                        </div>
                     </div>
                 )}
 
