@@ -318,28 +318,26 @@ export default function AdminFichajesPage() {
 
                 {/* Date Selection Box - Centered between tabs and list */}
                 {activeTab !== 'calendar' && (
-                    <div className="relative z-20 flex flex-col items-center justify-center gap-4 mb-8 bg-white/80 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2.5rem] border border-gray-100 shadow-sm mx-auto w-full max-w-xl animate-in fade-in slide-in-from-top-4 duration-700">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] leading-none">Filtrado de Fechas y Empleado</p>
-                        <HistoryDateRangePicker
-                            startDate={filter.startDate || ''}
-                            endDate={filter.endDate || ''}
-                            onChange={(dates) => {
-                                setFilter(prev => ({ ...prev, startDate: dates.start, endDate: dates.end }));
-                            }}
+                    <div className="flex flex-col items-center gap-6 mb-8">
+                        <CheckboxDropdown
+                            label={getLabel()}
+                            options={[
+                                { id: '0', label: 'Todos los empleados' },
+                                ...users.map(u => ({ id: u.id, label: `${u.firstname || u.login} ${u.lastname}` }))
+                            ]}
+                            selectedValues={selectedUsers}
+                            onToggle={handleUserToggle}
+                            className="z-50"
                         />
 
-                        {/* Employee Filter & Export Actions - Moved here */}
-                        <div className="flex flex-wrap items-center justify-center gap-3 mt-4 pt-6 border-t border-gray-200/60 w-full">
-                            <CheckboxDropdown
-                                label={getLabel()}
-                                options={[
-                                    { id: '0', label: 'Todos los empleados' },
-                                    ...users.map(u => ({ id: u.id, label: `${u.firstname || u.login} ${u.lastname}` }))
-                                ]}
-                                selectedValues={selectedUsers}
-                                onToggle={handleUserToggle}
-                                className="z-50"
-                                compact
+                        <div className="relative z-20 flex flex-col items-center justify-center gap-4 bg-white/80 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2.5rem] border border-gray-100 shadow-sm mx-auto w-full max-w-xl animate-in fade-in slide-in-from-top-4 duration-700">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] leading-none">Filtrar por Período</p>
+                            <HistoryDateRangePicker
+                                startDate={filter.startDate || ''}
+                                endDate={filter.endDate || ''}
+                                onChange={(dates) => {
+                                    setFilter(prev => ({ ...prev, startDate: dates.start, endDate: dates.end }));
+                                }}
                             />
                         </div>
                     </div>
