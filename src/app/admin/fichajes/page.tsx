@@ -235,17 +235,6 @@ export default function AdminFichajesPage() {
                             className="z-50"
                             compact
                         />
-                        <button
-                            onClick={() => {
-                                setSelectedUsers(['0']);
-                                setFilter(({ startDate: '', endDate: '' }));
-                                setCurrentPage(1);
-                            }}
-                            className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center font-bold text-[10px] uppercase tracking-wider h-[42px] md:h-[46px]"
-                            title="Limpiar todos los filtros"
-                        >
-                            Limpiar
-                        </button>
                         <ExportActions
                             cycles={workCycles}
                             userName={selectedUsers.length === 1 && selectedUsers[0] !== '0' ? getLabel() : undefined}
