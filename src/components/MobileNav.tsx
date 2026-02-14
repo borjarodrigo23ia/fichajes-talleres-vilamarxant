@@ -26,8 +26,18 @@ export default function MobileNav() {
                     const pendingVacs = await fetchVacations({ estado: 'pendiente' });
                     setHasNotifications(pendingVacs.length > 0 || corrections.length > 0);
                 } else {
-                    // User: Don't show notifications for now
-                    setHasNotifications(false);
+                    // User: Check for pending admin-initiated corrections
+                    const token = localStorage.getItem('dolibarr_token');
+                    const res = await fetch(`/api/corrections?fk_user=${user.id}&estado=pendiente`, {
+                        headers: { 'DOLAPIKEY': token || '' }
+                    });
+                    if (res.ok) {
+                        const userCorrs = await res.json();
+                        const pendingAdminRequests = Array.isArray(userCorrs) ? userCorrs.filter((c: any) =>
+                            c.fk_creator && String(c.fk_creator) !== String(c.fk_user)
+                        ) : [];
+                        setHasNotifications(pendingAdminRequests.length > 0);
+                    }
                 }
             } catch (e) {
                 console.error('Error checking notifications:', e);

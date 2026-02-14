@@ -10,6 +10,8 @@ import { CheckboxDropdown } from '@/components/ui/CheckboxDropdown';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Filter, CalendarClock, History, ClipboardList, Calendar } from 'lucide-react';
 import AuditHistoryList from '@/components/fichajes/AuditHistoryList';
+import { useCorrections } from '@/hooks/useCorrections';
+import UserCorrectionsPanel from '@/components/fichajes/UserCorrectionsPanel';
 import { ExportActions } from '@/components/fichajes/ExportActions';
 import { HistoryDateRangePicker } from '@/components/fichajes/HistoryDateRangePicker';
 import { cn } from '@/lib/utils';
@@ -25,6 +27,20 @@ export default function AdminFichajesPage() {
     const [manualModalOpen, setManualModalOpen] = useState(false);
     const [targetEvent, setTargetEvent] = useState<TimelineEvent | undefined>(undefined);
     const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
+
+    // Wrapper component to handle corrections fetching logic for admin view
+    const AdminCorrectionsWrapper = ({ selectedUsers }: { selectedUsers: string[] }) => {
+        const { corrections, loading, fetchCorrections } = useCorrections();
+
+        useEffect(() => {
+            // If '0' is in array, fetch all (undefined). Otherwise join IDs
+            const userIdParam = selectedUsers.includes('0') ? undefined : selectedUsers.join(',');
+            // Fetch ALL statuses for audit history, not just pending
+            fetchCorrections(userIdParam, undefined);
+        }, [selectedUsers, fetchCorrections]);
+
+        return <UserCorrectionsPanel corrections={corrections} loading={loading} showUser={true} />;
+    };
 
     const initialFilter = useMemo(() => {
         const now = new Date();
@@ -379,9 +395,8 @@ export default function AdminFichajesPage() {
                         </div>
                     ) : activeTab === 'audit' ? (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <AuditHistoryList
-                                userId={selectedUsers.includes('0') ? undefined : selectedUsers.join(',')}
-                            />
+                            {/* Replaced AuditHistoryList with UserCorrectionsPanel for unified view */}
+                            <AdminCorrectionsWrapper selectedUsers={selectedUsers} />
                         </div>
                     ) : (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">

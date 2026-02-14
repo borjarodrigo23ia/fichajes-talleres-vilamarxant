@@ -5,17 +5,25 @@ import { useUserCorrections } from '@/hooks/useUserCorrections';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
-import { LayoutDashboard, Palmtree, ChevronRight, Clock, FileText } from 'lucide-react';
+import { LayoutDashboard, Palmtree, ChevronRight, Clock, FileText, BadgeCheck } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
+
+import { useVacations, VacationRequest } from '@/hooks/useVacations';
+import { useState } from 'react';
 
 export default function GestionPage() {
     const { user } = useAuth();
     const { corrections, fetchMyCorrections } = useUserCorrections();
+    const { fetchVacations } = useVacations();
+    const [pendingVacations, setPendingVacations] = useState(0);
 
-    // Load corrections on mount to update badge
+    // Load corrections and vacations on mount to update badges
     useEffect(() => {
         fetchMyCorrections();
-    }, [fetchMyCorrections]);
+        fetchVacations({ estado: 'pendiente', usuario: user?.login }).then(data => {
+            if (Array.isArray(data)) setPendingVacations(data.length);
+        });
+    }, [fetchMyCorrections, fetchVacations, user?.login]);
 
     const pendingCount = corrections.filter(c => c.estado === 'pendiente').length;
 
@@ -30,11 +38,12 @@ export default function GestionPage() {
             icon: Palmtree,
             href: '/vacations',
             desc: 'Solicitar vacaciones, días propios o bajas',
-            color: 'primary'
+            color: 'primary',
+            badge: pendingVacations
         },
         {
             title: 'Mis Solicitudes',
-            icon: FileText,
+            icon: BadgeCheck,
             href: '/gestion/solicitudes',
             desc: 'Consulta estado de correcciones y cambios',
             color: 'amber',
@@ -70,9 +79,16 @@ export default function GestionPage() {
                                     </div>
 
                                     <div>
-                                        <h3 className="text-lg font-bold text-[#121726] tracking-tight group-hover:text-primary transition-colors flex items-center gap-2">
-                                            {c.title}
-                                        </h3>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h3 className="text-lg font-bold text-[#121726] tracking-tight group-hover:text-primary transition-colors">
+                                                {c.title}
+                                            </h3>
+                                            {c.badge !== undefined && c.badge > 0 && (
+                                                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black text-white shadow-sm ring-2 ring-white">
+                                                    {c.badge}
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-xs font-semibold text-gray-400 leading-relaxed opacity-80">
                                             {c.desc}
                                         </p>

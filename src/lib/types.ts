@@ -108,6 +108,7 @@ export interface WorkCycle {
     };
   }>;
   fecha: string;
+  fk_user?: string;
   duracion_total?: number;
   duracion_pausas?: number;
   duracion_efectiva?: number;

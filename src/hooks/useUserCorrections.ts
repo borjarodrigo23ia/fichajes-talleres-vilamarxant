@@ -25,7 +25,11 @@ export const useUserCorrections = () => {
             });
             if (res.ok) {
                 const data = await res.json();
-                setCorrections(Array.isArray(data) ? data : []);
+                const allData = Array.isArray(data) ? data : [];
+                // Client-side filter: ensure we only show corrections for the logged-in user
+                // This protects against the API returning all records for admin users
+                const myData = allData.filter((c: CorrectionRequest) => String(c.fk_user) === String(user.id));
+                setCorrections(myData);
             }
         } catch (e) {
             console.error('[useUserCorrections] Error:', e);

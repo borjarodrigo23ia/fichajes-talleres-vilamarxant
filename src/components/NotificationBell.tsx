@@ -69,9 +69,20 @@ export default function NotificationBell() {
                 });
             } else {
                 // User Notifications
-                const userVacs = await fetchVacations({ usuario: user.login });
-                const recentVacs = userVacs.filter(v => v.estado !== 'pendiente').slice(0, 5);
+                const [userVacs, userCorrs] = await Promise.all([
+                    fetchVacations({ usuario: user.login }),
+                    (async () => {
+                        // Fetch pending corrections for this user
+                        const token = localStorage.getItem('dolibarr_token');
+                        const res = await fetch(`/api/corrections?fk_user=${user.id}&estado=pendiente`, {
+                            headers: { 'DOLAPIKEY': token || '' }
+                        });
+                        return res.ok ? await res.json() : [];
+                    })()
+                ]);
 
+                // 1. Vacation Status Updates
+                const recentVacs = userVacs.filter(v => v.estado !== 'pendiente').slice(0, 5);
                 recentVacs.forEach((v: VacationRequest) => {
                     allNotifications.push({
                         id: `vac-${v.rowid}`,
@@ -83,6 +94,25 @@ export default function NotificationBell() {
                         icon: v.estado === 'aprobado' ? BadgeCheck : X,
                         color: v.estado === 'aprobado' ? 'text-emerald-500' : 'text-red-500',
                         bgColor: v.estado === 'aprobado' ? 'bg-emerald-50' : 'bg-red-50'
+                    });
+                });
+
+                // 2. Pending Admin Corrections (Action Required)
+                const pendingAdminRequests = userCorrs.filter((c: CorrectionRequest) =>
+                    c.fk_creator && String(c.fk_creator) !== String(c.fk_user)
+                );
+
+                pendingAdminRequests.forEach((c: CorrectionRequest) => {
+                    allNotifications.push({
+                        id: `corr-req-${c.rowid}`,
+                        type: 'correction-request',
+                        title: 'Aprobación Requerida',
+                        description: 'El administrador ha propuesto un cambio en tu jornada',
+                        href: '/fichajes',
+                        date: c.date_creation,
+                        icon: Info,
+                        color: 'text-amber-500',
+                        bgColor: 'bg-amber-50'
                     });
                 });
             }

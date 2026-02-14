@@ -1,10 +1,13 @@
 'use client';
 import { useMemo, useState, useEffect } from 'react';
-import { X, Plus, Trash2, Calendar, Clock, MessageCircle, Info, History, ArrowRight, GitPullRequestDraft, FileText } from 'lucide-react';
+import { X, Plus, Trash2, Calendar, Clock, MessageCircle, Info, History, ArrowRight, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { CustomSelect } from '@/components/ui/CustomSelect';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { TimelineEvent } from '@/lib/fichajes-utils';
 
 type Pausa = { inicio: string; fin: string };
 
@@ -28,10 +31,6 @@ function isValidDateStr(value: string) {
 function isValidTimeStr(value: string) {
     return /^\d{2}:\d{2}$/.test(value);
 }
-
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { TimelineEvent } from '@/lib/fichajes-utils';
 
 export default function ManualFichajeModal({
     isOpen,
@@ -59,6 +58,7 @@ export default function ManualFichajeModal({
     const [observaciones, setObservaciones] = useState('');
     const [motivo, setMotivo] = useState('');
     const [dropdownOpen, setDropdownOpen] = useState(false);
+
 
     // Motivos de modificación para cumplimiento legal (Ley Control Horario 2026)
     const MOTIVO_OPTIONS = [
@@ -171,7 +171,7 @@ export default function ManualFichajeModal({
             const salidaIso = salida ? new Date(`${fecha}T${salida}:00`).toISOString() : '';
             const fechaUtc = fecha;
 
-
+            const token = typeof window !== 'undefined' ? localStorage.getItem('dolibarr_token') : '';
 
             // Build pausas payload - handle simple mode pause editing
             let pausasPayload: Array<{ inicio_iso: string; fin_iso: string }> = [];
@@ -198,42 +198,25 @@ export default function ManualFichajeModal({
                 }));
             }
 
-            const token = typeof window !== 'undefined' ? localStorage.getItem('dolibarr_token') : '';
+            // ALL edits go through correction/approval flow (legal requirement)
+            {
+                // Correction Request (User or Admin->User)
+                // Use local datetime strings (not UTC ISO) for creating correction requests
+                const entradaLocal = entrada ? `${fecha} ${entrada}:00` : null;
+                const salidaLocal = salida ? `${fecha} ${salida}:00` : null;
 
-            if (user?.admin) {
-                const payload: ManualFichajePayload = {
-                    fecha: fechaUtc,
-                    entrada_iso: entradaIso,
-                    salida_iso: salidaIso,
-                    pausas: pausasPayload,
-                    usuario: user?.login,
-                    observaciones: `[${MOTIVO_OPTIONS.find(m => m.id === motivo)?.label}] ${observaciones || "Edición manual por administrador"}`
-                };
+                // Build pause payload for correction (needs local time strings if possible or ISO if handled)
+                // FichajesCorrections expects pausas as array, verify format. 
+                // We'll use ISO strings as we did before, assuming approve() handles them.
 
-                const res = await fetch('/api/fichajes/manual', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'DOLAPIKEY': token || '' },
-                    body: JSON.stringify(payload),
-                });
-                if (!res.ok) throw new Error('Error al guardar el fichaje');
-                toast.success('Fichaje guardado correctamente');
-            } else {
-                // Non-admin: Send correction request
-                // Use local datetime strings (not UTC ISO) so PHP stores the correct Madrid time
-                const entradaLocal = entrada ? `${fecha}T${entrada}:00` : null;
-                const salidaLocal = salida ? `${fecha}T${salida}:00` : null;
-
-                // Build pause payload
                 let pausasLocal: Array<{
                     inicio_iso: string;
                     fin_iso: string;
                     original_inicio_iso?: string | null;
                     original_fin_iso?: string | null
                 }> = [];
+
                 if (isPauseEvent && pausaTime) {
-                    // When editing a specific pause event, construct the pause with:
-                    // - if editing inicio_pausa: new start time, keep existing end time from the target event's cycle
-                    // - if editing fin_pausa: keep existing start time, new end time
                     const existingPauseStart = targetEvent?.pauseStart ? format(targetEvent.pauseStart, 'HH:mm') : '';
                     const existingPauseEnd = targetEvent?.pauseEnd ? format(targetEvent.pauseEnd, 'HH:mm') : '';
 
@@ -241,16 +224,16 @@ export default function ManualFichajeModal({
                     let pauseEndTime: string;
                     if (targetEvent?.type === 'inicio_pausa') {
                         pauseStartTime = pausaTime;
-                        pauseEndTime = existingPauseEnd || pausaTime; // fallback
+                        pauseEndTime = existingPauseEnd || pausaTime;
                     } else {
-                        pauseStartTime = existingPauseStart || pausaTime; // fallback
+                        pauseStartTime = existingPauseStart || pausaTime;
                         pauseEndTime = pausaTime;
                     }
                     pausasLocal = [{
                         inicio_iso: `${fecha}T${pauseStartTime}:00`,
                         fin_iso: `${fecha}T${pauseEndTime}:00`,
-                        original_inicio_iso: targetEvent?.pauseStart?.toISOString() || null,
-                        original_fin_iso: targetEvent?.pauseEnd?.toISOString() || null
+                        original_inicio_iso: targetEvent?.pauseStart ? format(targetEvent.pauseStart, 'yyyy-MM-dd HH:mm:ss') : null,
+                        original_fin_iso: targetEvent?.pauseEnd ? format(targetEvent.pauseEnd, 'yyyy-MM-dd HH:mm:ss') : null
                     }];
                 } else {
                     pausasLocal = pausas.map(p => ({
@@ -260,16 +243,15 @@ export default function ManualFichajeModal({
                 }
 
                 const payload = {
+                    fk_user: targetEvent?.userId,
                     fecha_jornada: fecha,
                     hora_entrada: entradaLocal,
-                    hora_entrada_original: targetEvent?.type === 'entrada' ? targetEvent.time.toISOString() : null,
+                    hora_entrada_original: targetEvent?.contextEntry ? format(targetEvent.contextEntry, 'yyyy-MM-dd HH:mm:ss') : (targetEvent?.type === 'entrada' ? format(targetEvent.time, 'yyyy-MM-dd HH:mm:ss') : null),
                     hora_salida: salidaLocal,
-                    hora_salida_original: targetEvent?.type === 'salida' ? targetEvent.time.toISOString() : null,
+                    hora_salida_original: targetEvent?.contextExit ? format(targetEvent.contextExit, 'yyyy-MM-dd HH:mm:ss') : (targetEvent?.type === 'salida' ? format(targetEvent.time, 'yyyy-MM-dd HH:mm:ss') : null),
                     pausas: pausasLocal,
                     observaciones: `[${MOTIVO_OPTIONS.find(m => m.id === motivo)?.label}] ${observaciones || `Solicitud de corrección para ${targetEvent?.label || 'jornada'}`}`
                 };
-
-                console.log('[ManualFichajeModal] Sending correction:', payload);
 
                 const res = await fetch('/api/corrections', {
                     method: 'POST',
@@ -279,29 +261,8 @@ export default function ManualFichajeModal({
 
                 if (!res.ok) {
                     const errorData = await res.json().catch(() => ({ error: 'Error desconocido' }));
-                    console.error('[ManualFichajeModal] Correction failed:', errorData);
-
-                    // Extract error message properly
                     let errorMsg = 'Error al enviar la solicitud';
-                    if (typeof errorData === 'string') {
-                        errorMsg = errorData;
-                    } else if (errorData.error) {
-                        if (typeof errorData.error === 'string') {
-                            errorMsg = errorData.error;
-                        } else if (errorData.error.message) {
-                            errorMsg = errorData.error.message;
-                        }
-                    } else if (errorData.details) {
-                        errorMsg = errorData.details;
-                    } else if (errorData.message) {
-                        errorMsg = errorData.message;
-                    }
-
-                    // Include debug info if available
-                    if (errorData.debug) {
-                        console.error('[ManualFichajeModal] Debug info:', errorData.debug);
-                    }
-
+                    if (errorData.error) errorMsg = typeof errorData.error === 'string' ? errorData.error : errorData.error.message;
                     throw new Error(errorMsg);
                 }
 
@@ -365,7 +326,7 @@ export default function ManualFichajeModal({
                             {isSimpleMode
                                 ? `Ajusta la hora oficial de ${targetEvent?.label?.toLowerCase()} para este registro.`
                                 : (user?.admin
-                                    ? 'Inserta registros directamente en el historial de forma manual.'
+                                    ? 'La solicitud será enviada al usuario para su aprobación.'
                                     : 'Tu solicitud será enviada para validación administrativa.')}
                         </p>
                     </div>
@@ -407,7 +368,7 @@ export default function ManualFichajeModal({
                                 </div>
                                 <CustomSelect
                                     label={<span>Motivo del cambio <span className="text-red-500">*</span></span>}
-                                    icon={GitPullRequestDraft}
+                                    icon={FileText}
                                     options={MOTIVO_OPTIONS}
                                     value={motivo}
                                     onChange={setMotivo}
@@ -438,7 +399,7 @@ export default function ManualFichajeModal({
                                 </div>
                                 <CustomSelect
                                     label={<span>Motivo del cambio <span className="text-red-500">*</span></span>}
-                                    icon={GitPullRequestDraft}
+                                    icon={FileText}
                                     options={MOTIVO_OPTIONS}
                                     value={motivo}
                                     onChange={setMotivo}

@@ -296,20 +296,29 @@ export default function AdminCorrectionsPage() {
 
                                                                 {/* Right: Actions */}
                                                                 <div className="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
-                                                                    <button
-                                                                        onClick={() => setConfirmDialog({ isOpen: true, type: 'approve', id: c.rowid, note: '' })}
-                                                                        className="flex-1 md:flex-none h-9 px-4 flex items-center justify-center gap-1.5 bg-[#C4EBB9] text-black rounded-lg text-[10px] font-bold uppercase tracking-wider hover:brightness-95 transition-all shadow-sm active:scale-95"
-                                                                    >
-                                                                        <CircleCheck size={14} strokeWidth={2} />
-                                                                        Aprobar
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => setConfirmDialog({ isOpen: true, type: 'reject', id: c.rowid, note: '' })}
-                                                                        className="flex-1 md:flex-none h-9 px-4 flex items-center justify-center gap-1.5 bg-[#FC8383] text-black rounded-lg text-[10px] font-bold uppercase tracking-wider hover:brightness-95 transition-all shadow-sm active:scale-95"
-                                                                    >
-                                                                        <CircleX size={14} strokeWidth={2} />
-                                                                        Rechazar
-                                                                    </button>
+                                                                    {c.fk_creator && String(c.fk_creator) !== String(c.fk_user) ? (
+                                                                        <div className="flex-1 md:flex-none h-9 px-4 flex items-center justify-center gap-1.5 bg-amber-100 text-black border border-amber-200 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm">
+                                                                            <Clock size={14} strokeWidth={2.5} />
+                                                                            Pendiente de usuario
+                                                                        </div>
+                                                                    ) : (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={() => setConfirmDialog({ isOpen: true, type: 'approve', id: c.rowid, note: '' })}
+                                                                                className="flex-1 md:flex-none h-9 px-4 flex items-center justify-center gap-1.5 bg-[#C4EBB9] text-black rounded-lg text-[10px] font-bold uppercase tracking-wider hover:brightness-95 transition-all shadow-sm active:scale-95"
+                                                                            >
+                                                                                <CircleCheck size={14} strokeWidth={2} />
+                                                                                Aprobar
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => setConfirmDialog({ isOpen: true, type: 'reject', id: c.rowid, note: '' })}
+                                                                                className="flex-1 md:flex-none h-9 px-4 flex items-center justify-center gap-1.5 bg-[#FC8383] text-black rounded-lg text-[10px] font-bold uppercase tracking-wider hover:brightness-95 transition-all shadow-sm active:scale-95"
+                                                                            >
+                                                                                <CircleX size={14} strokeWidth={2} />
+                                                                                Rechazar
+                                                                            </button>
+                                                                        </>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>

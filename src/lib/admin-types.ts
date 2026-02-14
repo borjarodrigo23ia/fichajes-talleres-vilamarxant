@@ -22,6 +22,7 @@ export interface CorrectionRequest {
     fk_approver?: string;
     date_approval?: string;
     admin_note?: string;
+    fk_creator?: string;
 }
 
 export interface UserConfig {

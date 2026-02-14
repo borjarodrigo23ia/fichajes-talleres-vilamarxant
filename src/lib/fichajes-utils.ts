@@ -5,6 +5,7 @@ import { parseDolibarrDate } from '@/lib/date-utils';
 export type TimelineEvent = {
     id: string;
     dbId?: string; // Real database ID from Dolibarr
+    userId?: string; // ID of the user who owns this event
     time: Date;
     originalTime?: Date; // Original time before correction (legal compliance)
     type: 'entrada' | 'salida' | 'inicio_pausa' | 'fin_pausa';
@@ -56,6 +57,7 @@ export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
         result.push({
             id: `entrada-${entradaDate.getTime()}`,
             dbId: cycle.entrada.id,
+            userId: cycle.fk_user,
             time: entradaDate,
             type: 'entrada',
             label: 'Entrada',
@@ -85,6 +87,7 @@ export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
                 result.push({
                     id: `pausa-start-${pausaInicio.getTime()}`,
                     dbId: pausa.inicio.id,
+                    userId: cycle.fk_user,
                     time: pausaInicio,
                     type: 'inicio_pausa',
                     label: 'Pausa',
@@ -111,6 +114,7 @@ export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
                     result.push({
                         id: `pausa-end-${pausaFin.getTime()}`,
                         dbId: pausa.fin.id,
+                        userId: cycle.fk_user,
                         time: pausaFin,
                         type: 'fin_pausa',
                         label: 'Regreso',
@@ -141,6 +145,7 @@ export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
             result.push({
                 id: `salida-${salidaDate!.getTime()}`, // valid here because block exists
                 dbId: cycle.salida.id,
+                userId: cycle.fk_user,
                 time: salidaDate!,
                 type: 'salida',
                 label: 'Salida',

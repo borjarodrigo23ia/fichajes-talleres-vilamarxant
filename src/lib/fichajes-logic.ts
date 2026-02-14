@@ -46,7 +46,7 @@ export const groupFichajesIntoCycles = (fichajesArray: Fichaje[]): WorkCycle[] =
                         }
                     }
                     if (!currentCycle) {
-                        currentCycle = { entrada: { ...fichaje, tipo: 'entrar', fecha_creacion: dateStr }, pausas: [], fecha: dateStr };
+                        currentCycle = { entrada: { ...fichaje, tipo: 'entrar', fecha_creacion: dateStr }, pausas: [], fecha: dateStr, fk_user: fichaje.fk_user };
                     }
                     break;
 

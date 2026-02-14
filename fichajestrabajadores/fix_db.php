@@ -9,9 +9,38 @@ $db->query("ALTER TABLE " . MAIN_DB_PREFIX . "fichajestrabajadores_corrections A
 echo "OK: admin_note column ready.\n";
 
 // 2. Ensure fecha_original column exists on fichajes (Legal Compliance)
-$sql = "ALTER TABLE " . MAIN_DB_PREFIX . "fichajestrabajadores ADD COLUMN IF NOT EXISTS fecha_original DATETIME DEFAULT NULL";
-$db->query($sql);
-echo "OK: fecha_original column ready (legal compliance).\n";
+// Verify or create 'fichajestrabajadores_corrections' table
+$sql = "CREATE TABLE IF NOT EXISTS " . MAIN_DB_PREFIX . "fichajestrabajadores_corrections (
+    rowid INTEGER AUTO_INCREMENT PRIMARY KEY,
+    fk_user INTEGER NOT NULL,
+    fecha_jornada DATE NOT NULL,
+    hora_entrada DATETIME DEFAULT NULL,
+    hora_entrada_original DATETIME DEFAULT NULL,
+    hora_salida DATETIME DEFAULT NULL,
+    hora_salida_original DATETIME DEFAULT NULL,
+    pausas TEXT DEFAULT NULL,
+    observaciones TEXT DEFAULT NULL,
+    estado VARCHAR(20) DEFAULT 'pendiente',
+    fk_approver INTEGER DEFAULT NULL,
+    admin_note TEXT DEFAULT NULL,
+    date_approval DATETIME DEFAULT NULL,
+    date_creation DATETIME DEFAULT NULL,
+    tms TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    fk_creator INTEGER DEFAULT NULL
+) ENGINE=innodb;";
+$res = $db->query($sql);
+if (!$res) {
+    print "Error creating table fichajestrabajadores_corrections: " . $db->lasterror() . "<br>\n";
+} else {
+    print "Table fichajestrabajadores_corrections verified/created.<br>\n";
+    // Ensure column exists for existing tables
+    $db->query("ALTER TABLE " . MAIN_DB_PREFIX . "fichajestrabajadores_corrections ADD COLUMN IF NOT EXISTS admin_note TEXT NULL");
+    $db->query("ALTER TABLE " . MAIN_DB_PREFIX . "fichajestrabajadores_corrections ADD COLUMN IF NOT EXISTS date_approval DATETIME NULL");
+    $db->query("ALTER TABLE " . MAIN_DB_PREFIX . "fichajestrabajadores_corrections ADD COLUMN IF NOT EXISTS hora_entrada_original DATETIME NULL");
+    $db->query("ALTER TABLE " . MAIN_DB_PREFIX . "fichajestrabajadores_corrections ADD COLUMN IF NOT EXISTS hora_salida_original DATETIME NULL");
+    $db->query("ALTER TABLE " . MAIN_DB_PREFIX . "fichajestrabajadores_corrections ADD COLUMN IF NOT EXISTS fk_creator INTEGER NULL");
+}
+echo "OK: fichajestrabajadores_corrections table and columns ready.\n";
 
 // 3. Reset all non-pending corrections for re-testing
 $sql = "UPDATE " . MAIN_DB_PREFIX . "fichajestrabajadores_corrections SET estado = 'pendiente', fk_approver = NULL, date_approval = NULL WHERE estado != 'pendiente'";

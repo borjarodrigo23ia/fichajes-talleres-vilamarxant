@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { TimelineEvent } from '@/lib/fichajes-utils';
 import InstallPrompt from '@/components/pwa/InstallPrompt';
 import AdminChangeRequestModal from '@/components/fichajes/AdminChangeRequestModal';
+import PendingCorrectionsModal from '@/components/fichajes/PendingCorrectionsModal';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { RefreshIndicator } from '@/components/ui/RefreshIndicator';
 import { SoftBlockModal } from '@/components/fichajes/SoftBlockModal';
@@ -152,6 +153,7 @@ export default function FichajesPage() {
             </PageHeader>
 
             <div className="space-y-6 md:space-y-8 max-w-5xl">
+                <PendingCorrectionsModal onActionComplete={refreshFichajes} />
                 <section className="w-full">
                     <TimerCard
                         cycle={activeCycle}

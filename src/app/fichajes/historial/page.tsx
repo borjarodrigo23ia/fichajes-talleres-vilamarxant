@@ -7,10 +7,12 @@ import { ArrowLeft, CalendarClock, History, ClipboardList, FileText } from 'luci
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/PageHeader';
 import ManualFichajeModal from '@/components/fichajes/ManualFichajeModal';
-import AuditHistoryList from '@/components/fichajes/AuditHistoryList';
+
 import { CustomSelect } from '@/components/ui/CustomSelect';
 import { HistoryDateRangePicker } from '@/components/fichajes/HistoryDateRangePicker';
 import { cn } from '@/lib/utils';
+import UserCorrectionsPanel from '@/components/fichajes/UserCorrectionsPanel';
+import { useUserCorrections } from '@/hooks/useUserCorrections';
 
 import { getDailyEvents, TimelineEvent } from '@/lib/fichajes-utils';
 
@@ -182,6 +184,15 @@ export default function HistorialPage() {
         );
     };
 
+    // Fetch corrections for the 'audit' tab
+    const { corrections, loading: correctionsLoading, fetchMyCorrections } = useUserCorrections();
+
+    useEffect(() => {
+        if (activeTab === 'audit') {
+            fetchMyCorrections();
+        }
+    }, [activeTab, fetchMyCorrections]);
+
     return (
         <>
             <PageHeader
@@ -254,7 +265,11 @@ export default function HistorialPage() {
                     </div>
                 ) : (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <AuditHistoryList userId={user?.id} />
+                        {/* Migrated UserCorrectionsPanel here */}
+                        <UserCorrectionsPanel
+                            corrections={corrections}
+                            loading={correctionsLoading}
+                        />
                     </div>
                 )}
             </div>

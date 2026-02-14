@@ -1,14 +1,18 @@
 import webPush from 'web-push';
 import { getSubscriptionsForUser, getAllSubscriptions, PushSubscription } from '@/lib/push-db';
 
-if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-    console.warn('VAPID keys not configured');
-} else {
-    webPush.setVapidDetails(
-        process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-        process.env.VAPID_PRIVATE_KEY
-    );
+try {
+    if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+        console.warn('VAPID keys not configured');
+    } else {
+        webPush.setVapidDetails(
+            process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
+            process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+            process.env.VAPID_PRIVATE_KEY
+        );
+    }
+} catch (error: any) {
+    console.warn('VAPID configuration error. Push notifications will be disabled:', error.message);
 }
 
 export interface NotificationPayload {

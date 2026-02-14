@@ -1609,7 +1609,8 @@ class FichajestrabajadoresApi extends DolibarrApi
             isset($request_data['hora_entrada_original']) ? $request_data['hora_entrada_original'] : null,
             isset($request_data['hora_salida_original']) ? $request_data['hora_salida_original'] : null,
             isset($request_data['pausas']) ? $request_data['pausas'] : array(),
-            isset($request_data['observaciones']) ? $request_data['observaciones'] : ''
+            isset($request_data['observaciones']) ? $request_data['observaciones'] : '',
+            $user->id // fk_creator
         );
 
         if ($res > 0) {
@@ -1630,12 +1631,18 @@ class FichajestrabajadoresApi extends DolibarrApi
     public function approveCorrection($id, $request_data = null)
     {
         global $user;
-        if (!$user->admin && empty($user->rights->fichajestrabajadores->config)) {
-            throw new RestException(401, 'No tienes permiso para aprobar correcciones');
-        }
-
         dol_include_once('/fichajestrabajadores/class/fichajescorrections.class.php');
         $correction = new FichajesCorrections($this->db);
+
+        if (!$user->admin && empty($user->rights->fichajestrabajadores->config)) {
+            if ($correction->fetch($id) > 0) {
+                if ($correction->fk_user != $user->id || empty($correction->fk_creator) || $correction->fk_creator == $user->id) {
+                    throw new RestException(401, 'No tienes permiso para aprobar esta corrección');
+                }
+            } else {
+                throw new RestException(404, 'Corrección no encontrada');
+            }
+        }
 
         $admin_note = is_array($request_data) && isset($request_data['admin_note']) ? $request_data['admin_note'] : '';
 
@@ -1658,12 +1665,18 @@ class FichajestrabajadoresApi extends DolibarrApi
     public function rejectCorrection($id, $request_data = null)
     {
         global $user;
-        if (!$user->admin && empty($user->rights->fichajestrabajadores->config)) {
-            throw new RestException(401, 'No tienes permiso para rechazar correcciones');
-        }
-
         dol_include_once('/fichajestrabajadores/class/fichajescorrections.class.php');
         $correction = new FichajesCorrections($this->db);
+
+        if (!$user->admin && empty($user->rights->fichajestrabajadores->config)) {
+            if ($correction->fetch($id) > 0) {
+                if ($correction->fk_user != $user->id || empty($correction->fk_creator) || $correction->fk_creator == $user->id) {
+                    throw new RestException(401, 'No tienes permiso para rechazar esta corrección');
+                }
+            } else {
+                throw new RestException(404, 'Corrección no encontrada');
+            }
+        }
 
         $admin_note = is_array($request_data) && isset($request_data['admin_note']) ? $request_data['admin_note'] : '';
 
