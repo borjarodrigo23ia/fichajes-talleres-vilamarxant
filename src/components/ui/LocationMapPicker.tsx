@@ -50,6 +50,13 @@ export default function LocationMapPicker({ initialLat, initialLng, onLocationSe
 
     const center = position || defaultPosition;
 
+    // Sync state when props change (e.g. from geolocation button)
+    useEffect(() => {
+        if (initialLat && initialLng) {
+            setPosition([initialLat, initialLng]);
+        }
+    }, [initialLat, initialLng]);
+
     return (
         <div className="h-[300px] w-full rounded-xl overflow-hidden border border-gray-200 shadow-inner relative z-0">
             <MapContainer

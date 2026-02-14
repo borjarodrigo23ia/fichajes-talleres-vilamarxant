@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Toaster } from 'react-hot-toast';
 import { Outfit, JetBrains_Mono, Roboto } from "next/font/google";
 import { AuthProvider } from '@/context/AuthContext';
 import { NetworkStatusBanner } from '@/components/ui/NetworkStatusBanner';
@@ -66,6 +67,7 @@ export default function RootLayout({
                 <ServiceWorkerRegister />
                 <NetworkStatusBanner />
                 <AuthProvider>
+                    <Toaster position="top-center" />
                     {children}
                 </AuthProvider>
             </body>

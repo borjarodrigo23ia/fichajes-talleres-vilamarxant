@@ -7,17 +7,17 @@ import { useVacations, VacationRequest } from '@/hooks/useVacations';
 import { useCorrections } from '@/hooks/useCorrections';
 import { CorrectionRequest } from '@/lib/admin-types';
 import Link from 'next/link';
+import { toast } from 'react-hot-toast';
 
 export default function NotificationBell() {
     const { user } = useAuth();
     const { fetchVacations } = useVacations();
     const { fetchCorrections } = useCorrections();
     const [isOpen, setIsOpen] = useState(false);
+    const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set());
     const [notifications, setNotifications] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const bellRef = useRef<HTMLDivElement>(null);
-
-
 
     const loadNotifications = async () => {
         if (!user) return;
@@ -25,11 +25,17 @@ export default function NotificationBell() {
         const allNotifications: any[] = [];
 
         try {
+            // 1. Fetch Read Notifications IDs
+            const readRes = await fetch(`/api/notifications/read?userId=${user.id}`);
+            const readIds = readRes.ok ? await readRes.json() : [];
+            const readSet = new Set(readIds as string[]);
+            setReadNotificationIds(readSet);
+
             if (user.admin) {
                 // Admin Notifications
                 const [vacs, corrs] = await Promise.all([
                     fetchVacations({ estado: 'pendiente' }),
-                    // Fetch corrections separately as the hook doesn't return data directly from fetchCorrections
+                    // Fetch corrections separately
                     (async () => {
                         const token = localStorage.getItem('dolibarr_token');
                         const res = await fetch(`/api/corrections?estado=pendiente`, {
@@ -40,39 +46,44 @@ export default function NotificationBell() {
                 ]);
 
                 vacs.forEach((v: VacationRequest) => {
-                    allNotifications.push({
-                        id: `vac-${v.rowid}`,
-                        type: 'vacation',
-                        title: 'Solicitud de Vacaciones',
-                        description: `${v.usuario} ha solicitado ${v.tipo.replace('_', ' ')}`,
-                        href: '/admin/vacations',
-                        date: v.fecha_creacion,
-                        icon: CalendarClock,
-                        color: 'text-blue-500',
-                        bgColor: 'bg-blue-50'
-                    });
+                    const id = `vac-${v.rowid}`;
+                    if (!readSet.has(id)) {
+                        allNotifications.push({
+                            id,
+                            type: 'vacation',
+                            title: 'Solicitud de Vacaciones',
+                            description: `${v.usuario} ha solicitado ${v.tipo.replace('_', ' ')}`,
+                            href: '/admin/vacations',
+                            date: v.fecha_creacion,
+                            icon: CalendarClock,
+                            color: 'text-blue-500',
+                            bgColor: 'bg-blue-50'
+                        });
+                    }
                 });
 
                 corrs.forEach((c: CorrectionRequest) => {
-                    const empName = c.firstname && c.lastname ? `${c.firstname} ${c.lastname}` : (c.login || 'Un empleado');
-                    allNotifications.push({
-                        id: `corr-${c.rowid}`,
-                        type: 'correction',
-                        title: 'Cambio de Jornada',
-                        description: `${empName} solicita corrección de fichaje`,
-                        href: '/admin/corrections',
-                        date: c.date_creation,
-                        icon: BadgeCheck,
-                        color: 'text-purple-500',
-                        bgColor: 'bg-purple-50'
-                    });
+                    const id = `corr-${c.rowid}`;
+                    if (!readSet.has(id)) {
+                        const empName = c.firstname && c.lastname ? `${c.firstname} ${c.lastname}` : (c.login || 'Un empleado');
+                        allNotifications.push({
+                            id,
+                            type: 'correction',
+                            title: 'Cambio de Jornada',
+                            description: `${empName} solicita corrección de fichaje`,
+                            href: '/admin/corrections',
+                            date: c.date_creation,
+                            icon: BadgeCheck,
+                            color: 'text-purple-500',
+                            bgColor: 'bg-purple-50'
+                        });
+                    }
                 });
             } else {
                 // User Notifications
                 const [userVacs, userCorrs] = await Promise.all([
                     fetchVacations({ usuario: user.login }),
                     (async () => {
-                        // Fetch pending corrections for this user
                         const token = localStorage.getItem('dolibarr_token');
                         const res = await fetch(`/api/corrections?fk_user=${user.id}&estado=pendiente`, {
                             headers: { 'DOLAPIKEY': token || '' }
@@ -84,17 +95,20 @@ export default function NotificationBell() {
                 // 1. Vacation Status Updates
                 const recentVacs = userVacs.filter(v => v.estado !== 'pendiente').slice(0, 5);
                 recentVacs.forEach((v: VacationRequest) => {
-                    allNotifications.push({
-                        id: `vac-${v.rowid}`,
-                        type: 'vacation-status',
-                        title: `Solicitud ${v.estado.charAt(0).toUpperCase() + v.estado.slice(1)}`,
-                        description: `Tu solicitud para el ${v.fecha_inicio} ha sido ${v.estado}`,
-                        href: '/gestion',
-                        date: v.fecha_aprobacion || v.fecha_creacion,
-                        icon: v.estado === 'aprobado' ? BadgeCheck : X,
-                        color: v.estado === 'aprobado' ? 'text-emerald-500' : 'text-red-500',
-                        bgColor: v.estado === 'aprobado' ? 'bg-emerald-50' : 'bg-red-50'
-                    });
+                    const id = `vac-${v.rowid}-${v.estado}`; // Make ID state-dependent to show new status
+                    if (!readSet.has(id)) {
+                        allNotifications.push({
+                            id,
+                            type: 'vacation-status',
+                            title: `Solicitud ${v.estado.charAt(0).toUpperCase() + v.estado.slice(1)}`,
+                            description: `Tu solicitud para el ${v.fecha_inicio} ha sido ${v.estado}`,
+                            href: '/gestion',
+                            date: v.fecha_aprobacion || v.fecha_creacion,
+                            icon: v.estado === 'aprobado' ? BadgeCheck : X,
+                            color: v.estado === 'aprobado' ? 'text-emerald-500' : 'text-red-500',
+                            bgColor: v.estado === 'aprobado' ? 'bg-emerald-50' : 'bg-red-50'
+                        });
+                    }
                 });
 
                 // 2. Pending Admin Corrections (Action Required)
@@ -103,17 +117,23 @@ export default function NotificationBell() {
                 );
 
                 pendingAdminRequests.forEach((c: CorrectionRequest) => {
-                    allNotifications.push({
-                        id: `corr-req-${c.rowid}`,
-                        type: 'correction-request',
-                        title: 'Aprobación Requerida',
-                        description: 'El administrador ha propuesto un cambio en tu jornada',
-                        href: '/fichajes',
-                        date: c.date_creation,
-                        icon: Info,
-                        color: 'text-amber-500',
-                        bgColor: 'bg-amber-50'
-                    });
+                    const id = `corr-req-${c.rowid}`;
+                    // Important: These usually shouldn't be dismissible until acted upon, 
+                    // but for consistency we'll allow it or check logic.
+                    // For now, let's treat them like others.
+                    if (!readSet.has(id)) {
+                        allNotifications.push({
+                            id,
+                            type: 'correction-request',
+                            title: 'Aprobación Requerida',
+                            description: 'El administrador ha propuesto un cambio en tu jornada',
+                            href: '/fichajes',
+                            date: c.date_creation,
+                            icon: Info,
+                            color: 'text-amber-500',
+                            bgColor: 'bg-amber-50'
+                        });
+                    }
                 });
             }
 
@@ -124,6 +144,47 @@ export default function NotificationBell() {
             console.error('Error loading notifications:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const markAllAsRead = async () => {
+        if (!user || notifications.length === 0) return;
+
+        const idsToMark = notifications.map(n => n.id);
+
+        try {
+            await fetch('/api/notifications/read', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user.id,
+                    notificationIds: idsToMark
+                })
+            });
+
+            // Optimistic update
+            setNotifications([]);
+            toast.success('Todas las notificaciones marcadas como leídas');
+        } catch (error) {
+            toast.error('Error al actualizar notificaciones');
+        }
+    };
+
+    const markOneAsRead = async (id: string, href: string) => {
+        if (!user) return;
+        try {
+            await fetch('/api/notifications/read', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user.id,
+                    notificationIds: [id]
+                })
+            });
+            // Don't clear list immediately if navigating, but if stayed logic would be:
+            // setNotifications(prev => prev.filter(n => n.id !== id));
+        } catch (e) {
+            // ignore
         }
     };
 
@@ -180,9 +241,19 @@ export default function NotificationBell() {
                                     </span>
                                 )}
                             </h4>
-                            <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-black transition-colors">
-                                <X size={20} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {hasUnread && (
+                                    <button
+                                        onClick={markAllAsRead}
+                                        className="text-[10px] font-bold uppercase tracking-wider text-primary hover:text-primary/80 transition-colors mr-2"
+                                    >
+                                        Marcar leídas
+                                    </button>
+                                )}
+                                <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-black transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
                         </div>
 
                         <div className="max-h-[450px] overflow-y-auto">
@@ -198,7 +269,7 @@ export default function NotificationBell() {
                                     </div>
                                     <div>
                                         <p className="text-gray-900 font-bold text-sm">Todo al día</p>
-                                        <p className="text-gray-400 text-xs mt-1">No tienes notificaciones pendientes</p>
+                                        <p className="text-gray-400 text-xs mt-1">No tienes mejores notificaciones pendientes</p>
                                     </div>
                                 </div>
                             ) : (
@@ -207,7 +278,10 @@ export default function NotificationBell() {
                                         <Link
                                             key={notif.id}
                                             href={notif.href}
-                                            onClick={() => setIsOpen(false)}
+                                            onClick={() => {
+                                                markOneAsRead(notif.id, notif.href);
+                                                setIsOpen(false);
+                                            }}
                                             className="flex items-start gap-4 p-5 hover:bg-gray-50 transition-colors group"
                                         >
                                             <div className={`w-12 h-12 shrink-0 rounded-2xl ${notif.bgColor} ${notif.color} flex items-center justify-center border border-white shadow-sm`}>

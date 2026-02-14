@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
 import Link from 'next/link';
-import { Save, ArrowLeft, Settings, User as UserIcon, MapPinned, MapPinCheck, Clock as ClockIcon, AlertCircle, ExternalLink, Check, CircleCheck, Loader2, HousePlus, Palmtree, Trash2 } from 'lucide-react';
+import { Save, ArrowLeft, Settings, User as UserIcon, MapPinned, MapPinCheck, Clock as ClockIcon, AlertCircle, ExternalLink, Check, CircleCheck, Loader2, HousePlus, Palmtree, Trash2, Briefcase, MapPinHouse } from 'lucide-react';
+import { isProject, getCleanLabel } from '@/lib/center-utils';
 import ShiftConfigurator from '@/components/admin/ShiftConfigurator';
 import { toast } from 'react-hot-toast';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -191,8 +192,10 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
                             <div>
                                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Centros Asignados</h4>
                                 <div className="grid gap-3">
+                                    {/* Assigned Work Centers */}
                                     {availableCenters
                                         .filter(center => config.work_centers_ids?.split(',').includes(center.rowid.toString()))
+                                        .filter(center => !isProject(center.label))
                                         .map(center => {
                                             const globalIndex = availableCenters.findIndex(c => c.rowid === center.rowid);
                                             const centerColors = [
@@ -223,7 +226,8 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
                                                             <MapPinCheck size={20} />
                                                         </div>
                                                         <div>
-                                                            <div className="text-sm font-bold text-gray-900 leading-tight">{center.label}</div>
+                                                            <div className="text-sm font-bold text-gray-900 leading-tight">{getCleanLabel(center.label)}</div>
+                                                            <div className="text-[10px] font-medium text-gray-400">Centro de Trabajo</div>
                                                         </div>
                                                     </div>
                                                     <div className="relative z-10 flex items-center">
@@ -234,6 +238,37 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
                                                 </div>
                                             );
                                         })}
+
+                                    {/* Assigned Projects */}
+                                    {availableCenters
+                                        .filter(center => config.work_centers_ids?.split(',').includes(center.rowid.toString()))
+                                        .filter(center => isProject(center.label))
+                                        .map(center => (
+                                            <div
+                                                key={center.rowid}
+                                                onClick={() => {
+                                                    const currentIds = config.work_centers_ids ? config.work_centers_ids.split(',').filter(Boolean) : [];
+                                                    const newIds = currentIds.filter(id => id !== center.rowid.toString());
+                                                    handleChange('work_centers_ids', newIds.join(','));
+                                                }}
+                                                className="relative overflow-hidden p-4 rounded-xl border bg-white border-gray-100 shadow-sm flex items-center justify-between cursor-pointer transition-all hover:border-red-200 group"
+                                            >
+                                                <div className="relative z-10 flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-black transition-colors group-hover:bg-red-50">
+                                                        <MapPinned size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm font-bold text-gray-900 leading-tight">{getCleanLabel(center.label)}</div>
+                                                        <div className="text-[10px] font-medium text-gray-400">Proyecto</div>
+                                                    </div>
+                                                </div>
+                                                <div className="relative z-10 flex items-center">
+                                                    <div className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all hover:scale-110 active:scale-95">
+                                                        <Trash2 size={18} strokeWidth={2.5} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
 
                                     {/* Conditional Save Button for Centers */}
                                     {initialCenters !== null && (config.work_centers_ids || '') !== initialCenters && (
@@ -255,7 +290,7 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
 
                                     {(!config.work_centers_ids || config.work_centers_ids.split(',').filter(Boolean).length === 0) && (
                                         <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                            <p className="text-sm text-gray-400">No hay centros asignados</p>
+                                            <p className="text-sm text-gray-400">No hay ubicaciones asignadas</p>
                                         </div>
                                     )}
                                 </div>
@@ -264,32 +299,76 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
                             {/* Available Centers */}
                             <div>
                                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Centros Disponibles</h4>
-                                <div className="grid gap-3">
-                                    {availableCenters
-                                        .filter(center => !config.work_centers_ids?.split(',').includes(center.rowid.toString()))
-                                        .map(center => (
-                                            <div
-                                                key={center.rowid}
-                                                onClick={() => {
-                                                    const currentIds = config.work_centers_ids ? config.work_centers_ids.split(',').filter(Boolean) : [];
-                                                    const newIds = [...currentIds, center.rowid.toString()];
-                                                    handleChange('work_centers_ids', newIds.join(','));
-                                                }}
-                                                className="p-4 rounded-xl border bg-white border-gray-100 flex items-center justify-between cursor-pointer transition-all hover:border-blue-300 hover:shadow-md group"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
-                                                        <MapPinned size={16} />
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-sm font-bold text-gray-900 group-hover:text-blue-700 transition-colors">{center.label}</div>
-                                                    </div>
-                                                </div>
-                                                <div className="text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    Asignar
-                                                </div>
+                                <div className="space-y-6">
+
+                                    {/* Work Centers Section */}
+                                    {availableCenters.filter(c => !config.work_centers_ids?.split(',').includes(c.rowid.toString()) && !isProject(c.label)).length > 0 && (
+                                        <div className="space-y-2">
+                                            <h5 className="text-[10px] font-bold text-gray-400 uppercase ml-1">Centros de Trabajo</h5>
+                                            <div className="grid gap-2">
+                                                {availableCenters
+                                                    .filter(center => !config.work_centers_ids?.split(',').includes(center.rowid.toString()) && !isProject(center.label))
+                                                    .map(center => (
+                                                        <div
+                                                            key={center.rowid}
+                                                            onClick={() => {
+                                                                const currentIds = config.work_centers_ids ? config.work_centers_ids.split(',').filter(Boolean) : [];
+                                                                const newIds = [...currentIds, center.rowid.toString()];
+                                                                handleChange('work_centers_ids', newIds.join(','));
+                                                            }}
+                                                            className="p-3 rounded-xl border bg-white border-gray-100 flex items-center justify-between cursor-pointer transition-all hover:border-blue-300 hover:shadow-md group"
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-black group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                                                                    <MapPinHouse size={16} />
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-sm font-bold text-gray-900 group-hover:text-blue-700 transition-colors">{getCleanLabel(center.label)}</div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-xs font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                Asignar
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                             </div>
-                                        ))}
+                                        </div>
+                                    )}
+
+                                    {/* Projects Section */}
+                                    {availableCenters.filter(c => !config.work_centers_ids?.split(',').includes(c.rowid.toString()) && isProject(c.label)).length > 0 && (
+                                        <div className="space-y-2">
+                                            <h5 className="text-[10px] font-bold text-gray-400 uppercase ml-1">Proyectos</h5>
+                                            <div className="grid gap-2">
+                                                {availableCenters
+                                                    .filter(center => !config.work_centers_ids?.split(',').includes(center.rowid.toString()) && isProject(center.label))
+                                                    .map(center => (
+                                                        <div
+                                                            key={center.rowid}
+                                                            onClick={() => {
+                                                                const currentIds = config.work_centers_ids ? config.work_centers_ids.split(',').filter(Boolean) : [];
+                                                                const newIds = [...currentIds, center.rowid.toString()];
+                                                                handleChange('work_centers_ids', newIds.join(','));
+                                                            }}
+                                                            className="p-3 rounded-xl border bg-white border-gray-100 flex items-center justify-between cursor-pointer transition-all hover:border-purple-300 hover:shadow-md group"
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-black group-hover:bg-purple-100 group-hover:text-purple-600 transition-colors">
+                                                                    <MapPinned size={16} />
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-sm font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{getCleanLabel(center.label)}</div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-xs font-bold text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                Asignar
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {availableCenters.filter(center => !config.work_centers_ids?.split(',').includes(center.rowid.toString())).length === 0 && (
                                         <div className="text-center py-6 text-gray-400 text-sm">
                                             Todos los centros han sido asignados.

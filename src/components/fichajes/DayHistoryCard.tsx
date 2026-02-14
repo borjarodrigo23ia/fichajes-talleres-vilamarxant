@@ -250,6 +250,11 @@ const SessionItem = ({ cycle, index, formatTime, showUserName = false, onEdit, i
                                 </div>
                                 <div className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">
                                     {event.label}
+                                    {event.isNextDay && (
+                                        <span className="ml-2 text-[9px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-md border border-indigo-100 uppercase tracking-wider">
+                                            +1 día
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                             <div className="flex items-center gap-1.5">

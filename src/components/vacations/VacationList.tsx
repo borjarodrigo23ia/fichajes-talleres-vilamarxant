@@ -183,7 +183,20 @@ export default function VacationList({ refreshTrigger }: VacationListProps) {
         });
     };
 
-    // Pagination Controls Component
+    const historyRef = React.useRef<HTMLDivElement>(null);
+
+    const scrollToHistory = () => {
+        if (historyRef.current) {
+            const yOffset = -100; // Offset for sticky headers or breathing room
+            const element = historyRef.current;
+            const y = element.getBoundingClientRect().top + window.scrollY + yOffset;
+            window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+    };
+
+    // ... (rest of component)
+
+    // Pagination Controls Component - Strict History Design
     const renderPagination = () => {
         if (filteredVacations.length === 0 && !loading) return null;
 
@@ -205,34 +218,37 @@ export default function VacationList({ refreshTrigger }: VacationListProps) {
         }
 
         return (
-            <div className="fixed bottom-0 left-0 right-0 md:left-64 p-4 md:p-6 z-[60] mb-[74px] md:mb-0 pointer-events-none">
-                <div className="flex items-center justify-between w-full max-w-lg mx-auto text-gray-500 font-medium pointer-events-auto p-2 px-4 transition-all duration-300">
+            <div className="w-full pt-6 mt-8 border-t border-gray-100/80">
+                <div className="flex items-center justify-between w-full max-w-lg mx-auto text-gray-500 font-medium p-2 transition-all duration-300">
                     <button
                         type="button"
+                        aria-label="prev"
                         onClick={() => {
                             if (currentPage > 1) {
                                 setCurrentPage(p => p - 1);
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                scrollToHistory();
                             }
                         }}
                         disabled={currentPage === 1}
-                        className="p-2 rounded-full bg-slate-200/50 hover:bg-slate-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="rounded-full bg-slate-200/50 hover:bg-slate-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
-                        <ChevronDown className="rotate-90 text-gray-600" size={20} />
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22.499 12.85a.9.9 0 0 1 .57.205l.067.06a.9.9 0 0 1 .06 1.206l-.06.066-5.585 5.586-.028.027.028.027 5.585 5.587a.9.9 0 0 1 .06 1.207l-.06.066a.9.9 0 0 1-1.207.06l-.066-.06-6.25-6.25a1 1 0 0 1-.158-.212l-.038-.08a.9.9 0 0 1-.03-.606l.03-.083a1 1 0 0 1 .137-.226l.06-.066 6.25-6.25a.9.9 0 0 1 .635-.263Z" fill="#475569" stroke="#475569" strokeWidth=".078" />
+                        </svg>
                     </button>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
                         {pages.map(page => (
                             <button
                                 key={page}
                                 onClick={() => {
                                     setCurrentPage(page);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    scrollToHistory();
                                 }}
                                 className={cn(
-                                    "h-10 w-10 flex items-center justify-center rounded-full transition-all duration-500",
+                                    "h-10 w-10 flex items-center justify-center aspect-square transition-all duration-500",
                                     currentPage === page
-                                        ? "text-primary bg-white/30 backdrop-blur-xl border border-white/50 shadow-[0_8px_20px_0_rgba(var(--primary-rgb),0.2)] scale-125 font-bold z-10"
+                                        ? "text-indigo-600 bg-white/30 backdrop-blur-xl border border-white/50 shadow-[0_8px_20px_0_rgba(99,102,241,0.2)] rounded-full scale-125 font-bold z-10"
                                         : "text-gray-500 hover:bg-white/20"
                                 )}
                             >
@@ -243,16 +259,19 @@ export default function VacationList({ refreshTrigger }: VacationListProps) {
 
                     <button
                         type="button"
+                        aria-label="next"
                         onClick={() => {
                             if (currentPage < displayTotalPages) {
                                 setCurrentPage(p => p + 1);
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                scrollToHistory();
                             }
                         }}
                         disabled={currentPage >= displayTotalPages}
-                        className="p-2 rounded-full bg-slate-200/50 hover:bg-slate-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="rounded-full bg-slate-200/50 hover:bg-slate-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
-                        <ChevronDown className="-rotate-90 text-gray-600" size={20} />
+                        <svg className="rotate-180" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22.499 12.85a.9.9 0 0 1 .57.205l.067.06a.9.9 0 0 1 .06 1.206l-.06.066-5.585 5.586-.028.027.028.027 5.585 5.587a.9.9 0 0 1 .06 1.207l-.06.066a.9.9 0 0 1-1.207.06l-.066-.06-6.25-6.25a1 1 0 0 1-.158-.212l-.038-.08a.9.9 0 0 1-.03-.606l.03-.083a1 1 0 0 1 .137-.226l.06-.066 6.25-6.25a.9.9 0 0 1 .635-.263Z" fill="#475569" stroke="#475569" strokeWidth=".078" />
+                        </svg>
                     </button>
                 </div>
             </div>
@@ -308,7 +327,7 @@ export default function VacationList({ refreshTrigger }: VacationListProps) {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6" ref={historyRef}>
             {/* Header with Year Filter */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 px-2">
                 <div className="flex-1">

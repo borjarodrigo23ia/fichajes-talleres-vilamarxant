@@ -44,7 +44,7 @@ export const LastFichajeCard: React.FC<LastFichajeCardProps> = ({ cycle }) => {
         : '0h';
 
     return (
-        <div className="bg-white/90 backdrop-blur-xl rounded-2xl md:rounded-[2.5rem] p-4 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/20 h-full min-h-[200px]">
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl md:rounded-[2.5rem] p-4 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/20 h-full min-h-[200px] fix-safari-blur">
             <h3 className="text-gray-900 font-medium mb-4 md:mb-6 text-base md:text-lg">Último fichaje</h3>
 
             {/* Desktop: Horizontal Layout */}

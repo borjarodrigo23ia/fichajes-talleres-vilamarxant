@@ -165,6 +165,11 @@ export const TodayFichajes: React.FC<TodayFichajesProps> = ({ cycles, loading, o
                                                     </div>
                                                     <div className="text-base text-gray-500 font-medium">
                                                         {event.label}
+                                                        {event.isNextDay && (
+                                                            <span className="ml-2 text-[10px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-md border border-indigo-100 uppercase tracking-wider">
+                                                                +1 día
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
 

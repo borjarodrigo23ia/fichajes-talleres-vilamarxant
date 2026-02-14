@@ -23,8 +23,7 @@ export default function ScheduleManagementPage() {
         tipo_turno: 'fijo',      // fijo | rotativo
         hora_inicio_jornada: '09:00',
         hora_fin_jornada: '18:00',
-        hora_inicio_pausa: '14:00',
-        hora_fin_pausa: '15:00',
+        pausas: [] as { hora_inicio: string, hora_fin: string, descripcion?: string }[],
         observaciones: ''
     });
 
@@ -80,6 +79,28 @@ export default function ScheduleManagementPage() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const addPausa = () => {
+        setFormData(prev => ({
+            ...prev,
+            pausas: [...prev.pausas, { hora_inicio: '14:00', hora_fin: '15:00', descripcion: '' }]
+        }));
+    };
+
+    const removePausa = (index: number) => {
+        setFormData(prev => ({
+            ...prev,
+            pausas: prev.pausas.filter((_, i) => i !== index)
+        }));
+    };
+
+    const updatePausa = (index: number, field: string, value: string) => {
+        setFormData(prev => {
+            const newPausas = [...prev.pausas];
+            newPausas[index] = { ...newPausas[index], [field]: value };
+            return { ...prev, pausas: newPausas };
+        });
+    };
+
     const handleSubmit = async () => {
         if (selectedUserIds.size === 0) {
             toast.error('Selecciona al menos un empleado');
@@ -91,9 +112,10 @@ export default function ScheduleManagementPage() {
             return;
         }
 
-        if (formData.tipo_jornada === 'partida' && (!formData.hora_inicio_pausa || !formData.hora_fin_pausa)) {
-            toast.error('Para jornada partida, las horas de pausa son obligatorias');
-            return;
+        if (formData.tipo_jornada === 'partida' && formData.pausas.length === 0) {
+            // Optional warning, or just allow it? Usually 'partida' implies breaks.
+            // Let's enforce at least one break if they chose 'partida'
+            if (!confirm('Ha seleccionado jornada partida sin pausas. ¿Desea continuar?')) return;
         }
 
         if (!confirm(`¿Estás seguro de asignar esta jornada a ${selectedUserIds.size} empleados?`)) return;
@@ -110,10 +132,9 @@ export default function ScheduleManagementPage() {
                     ...formData
                 };
 
-                // If intensiva, clear pause times to be clean (optional, backend might ignore them)
+                // If intensiva, clear pauses
                 if (payload.tipo_jornada === 'intensiva') {
-                    delete (payload as any).hora_inicio_pausa;
-                    delete (payload as any).hora_fin_pausa;
+                    payload.pausas = [];
                 }
 
                 const res = await fetch('/api/jornadas', {
@@ -142,10 +163,6 @@ export default function ScheduleManagementPage() {
         setIsSaving(false);
         if (successCount > 0) toast.success(`Jornada asignada a ${successCount} empleados`);
         if (errorCount > 0) toast.error(`Falló la asignación en ${errorCount} empleados`);
-
-        if (successCount > 0 && errorCount === 0) {
-            // Optional: clear selection or form? maybe not, user might want to apply same to others
-        }
     };
 
     const filteredUsers = users.filter(u =>
@@ -156,7 +173,7 @@ export default function ScheduleManagementPage() {
     return (
         <div className="flex min-h-screen bg-[#FAFBFC]">
             <div className="hidden md:block"><Sidebar /></div>
-            <main className="flex-1 ml-0 md:ml-64 p-6 md:p-12 pb-32">
+            <main className="flex-1 ml-0 md:ml-64 p-4 md:p-12 pb-32">
                 <PageHeader
                     title="Gestión de Jornadas"
                     subtitle="Centro de control para asignación de horarios"
@@ -168,7 +185,7 @@ export default function ScheduleManagementPage() {
                 <div className="max-w-3xl mx-auto">
 
                     {/* UNIFIED CARD */}
-                    <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col gap-10">
+                    <div className="bg-white rounded-[2rem] p-6 md:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col gap-10">
 
                         {/* SECTION 1: CONFIGURATION */}
                         <div className="space-y-6">
@@ -214,57 +231,103 @@ export default function ScheduleManagementPage() {
                                     </div>
                                 </div>
 
-                                {/* Hours Row */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {/* Hours Configuration */}
+                                <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest pl-1">Entrada</label>
+                                        <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest pl-1 flex items-center gap-1">
+                                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                                            Entrada
+                                        </label>
                                         <input
                                             type="time"
                                             name="hora_inicio_jornada"
                                             value={formData.hora_inicio_jornada}
                                             onChange={handleInputChange}
-                                            className="w-full bg-gray-50 border-2 border-transparent focus:border-black/10 focus:bg-white rounded-2xl p-3 font-mono text-sm font-bold text-center outline-none transition-all"
+                                            className="w-full bg-gray-50 border-2 border-transparent focus:border-black/10 focus:bg-white rounded-2xl p-4 font-mono text-base font-bold text-center outline-none transition-all"
                                         />
                                     </div>
+
+                                    {/* Dynamic Pauses (In Between) */}
+                                    {formData.tipo_jornada === 'partida' && (
+                                        <div className="space-y-4 pt-2 border-t border-b border-gray-100 py-4">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">Pausas / Descansos</label>
+                                                <button
+                                                    onClick={addPausa}
+                                                    className="text-[10px] font-bold uppercase tracking-wider bg-black text-white px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors"
+                                                >
+                                                    + Añadir Pausa
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                {formData.pausas.map((pausa, idx) => (
+                                                    <div key={idx} className="bg-gray-50 rounded-2xl p-4 border border-gray-100 relative group animate-in fade-in slide-in-from-top-2 duration-200">
+                                                        <button
+                                                            onClick={() => removePausa(idx)}
+                                                            className="absolute -top-2 -right-2 bg-white text-gray-400 hover:text-red-500 p-1.5 rounded-full shadow-sm border border-gray-200 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all z-10"
+                                                        >
+                                                            <Check size={14} className="rotate-45" />
+                                                        </button>
+
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                            <div className="space-y-1">
+                                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest pl-1">Inicio Pausa</label>
+                                                                <input
+                                                                    type="time"
+                                                                    value={pausa.hora_inicio}
+                                                                    onChange={(e) => updatePausa(idx, 'hora_inicio', e.target.value)}
+                                                                    className="w-full bg-white border border-gray-200 focus:border-black/20 rounded-xl p-3 font-mono text-sm font-bold text-center outline-none transition-all"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest pl-1">Fin Pausa</label>
+                                                                <input
+                                                                    type="time"
+                                                                    value={pausa.hora_fin}
+                                                                    onChange={(e) => updatePausa(idx, 'hora_fin', e.target.value)}
+                                                                    className="w-full bg-white border border-gray-200 focus:border-black/20 rounded-xl p-3 font-mono text-sm font-bold text-center outline-none transition-all"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="mt-3">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Descripción (opcional)"
+                                                                value={pausa.descripcion || ''}
+                                                                onChange={(e) => updatePausa(idx, 'descripcion', e.target.value)}
+                                                                className="w-full bg-transparent border-b border-gray-200 focus:border-black text-xs font-medium py-1 px-1 outline-none transition-colors placeholder:text-gray-300"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ))}
+
+                                                {formData.pausas.length === 0 && (
+                                                    <div className="text-center py-6 border-2 border-dashed border-gray-100 rounded-2xl text-gray-300 text-xs font-medium">
+                                                        Sin pausas configuradas
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="space-y-2">
-                                        <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest pl-1">Salida</label>
+                                        <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest pl-1 flex items-center gap-1">
+                                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                                            Salida
+                                        </label>
                                         <input
                                             type="time"
                                             name="hora_fin_jornada"
                                             value={formData.hora_fin_jornada}
                                             onChange={handleInputChange}
-                                            className="w-full bg-gray-50 border-2 border-transparent focus:border-black/10 focus:bg-white rounded-2xl p-3 font-mono text-sm font-bold text-center outline-none transition-all"
+                                            className="w-full bg-gray-50 border-2 border-transparent focus:border-black/10 focus:bg-white rounded-2xl p-4 font-mono text-base font-bold text-center outline-none transition-all"
                                         />
                                     </div>
-
-                                    {formData.tipo_jornada === 'partida' && (
-                                        <>
-                                            <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
-                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest pl-1">Inicio Pausa</label>
-                                                <input
-                                                    type="time"
-                                                    name="hora_inicio_pausa"
-                                                    value={formData.hora_inicio_pausa}
-                                                    onChange={handleInputChange}
-                                                    className="w-full bg-gray-50 border-2 border-transparent focus:border-black/10 focus:bg-white rounded-2xl p-3 font-mono text-sm font-bold text-center outline-none transition-all"
-                                                />
-                                            </div>
-                                            <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
-                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest pl-1">Fin Pausa</label>
-                                                <input
-                                                    type="time"
-                                                    name="hora_fin_pausa"
-                                                    value={formData.hora_fin_pausa}
-                                                    onChange={handleInputChange}
-                                                    className="w-full bg-gray-50 border-2 border-transparent focus:border-black/10 focus:bg-white rounded-2xl p-3 font-mono text-sm font-bold text-center outline-none transition-all"
-                                                />
-                                            </div>
-                                        </>
-                                    )}
                                 </div>
 
                                 {/* Notes */}
-                                <div className="space-y-2">
+                                <div className="space-y-2 pt-2">
                                     <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest pl-1">Observaciones</label>
                                     <textarea
                                         name="observaciones"
@@ -330,8 +393,8 @@ export default function ScheduleManagementPage() {
                                                     key={user.id}
                                                     onClick={() => toggleUser(user.id)}
                                                     className={`group relative flex items-center gap-4 p-4 rounded-2xl cursor-pointer border-2 transition-all duration-200 ${isSelected
-                                                            ? 'bg-black border-black text-white shadow-xl shadow-black/10'
-                                                            : 'bg-white border-gray-100 hover:border-gray-200 hover:shadow-lg hover:shadow-black/5'
+                                                        ? 'bg-black border-black text-white shadow-xl shadow-black/10'
+                                                        : 'bg-white border-gray-100 hover:border-gray-200 hover:shadow-lg hover:shadow-black/5'
                                                         }`}
                                                 >
                                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black transition-colors ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 group-hover:text-black'

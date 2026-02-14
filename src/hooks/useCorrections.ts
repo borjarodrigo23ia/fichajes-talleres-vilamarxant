@@ -19,8 +19,11 @@ export const useCorrections = () => {
             });
             if (res.ok) {
                 const data = await res.json();
-                setCorrections(Array.isArray(data) ? data : []);
+                const correctionsData = Array.isArray(data) ? data : [];
+                setCorrections(correctionsData);
+                return correctionsData;
             }
+            return [];
         } catch (e) {
             console.error(e);
             toast.error('Error cargando correcciones');

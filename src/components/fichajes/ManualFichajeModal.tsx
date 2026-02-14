@@ -293,7 +293,7 @@ export default function ManualFichajeModal({
                 "max-h-[90vh] md:max-h-none"
             )}>
                 {/* Header */}
-                <div className="p-5 md:p-8 md:pb-4 flex items-start justify-between">
+                <div className="p-4 md:p-8 md:pb-4 flex items-start justify-between">
                     <div className="flex items-center gap-3 md:gap-5">
                         <div className="p-3 md:p-4 bg-primary/5 text-primary rounded-2xl md:rounded-[1.5rem]">
                             <History size={20} className="md:w-6 md:h-6" />
@@ -318,7 +318,7 @@ export default function ManualFichajeModal({
                 </div>
 
                 {/* Form Content */}
-                <div className="flex-1 overflow-y-auto px-5 md:px-8 pb-5 md:pb-8 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-5 md:pb-8 custom-scrollbar">
                     {/* Info */}
                     <div className="mb-6 md:mb-8 p-3 md:p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 flex gap-2 md:gap-3">
                         <Info size={16} className="text-indigo-500 shrink-0 mt-0.5 md:w-[18px] md:h-[18px]" />
@@ -343,8 +343,8 @@ export default function ManualFichajeModal({
                                             {format(new Date(fecha), "EEEE, d 'de' MMMM", { locale: es })}
                                         </span>
                                     </div>
-                                    <div className="flex items-end gap-3 md:gap-4">
-                                        <div className="flex-1 space-y-2 opacity-60 pointer-events-none">
+                                    <div className="flex flex-col sm:flex-row items-center sm:items-end gap-3 md:gap-4">
+                                        <div className="w-full sm:flex-1 space-y-2 opacity-60 pointer-events-none">
                                             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
                                                 <Clock size={16} /> Actual
                                             </label>
@@ -352,10 +352,10 @@ export default function ManualFichajeModal({
                                                 {targetEvent ? format(targetEvent.time, 'HH:mm') : '--:--'}
                                             </div>
                                         </div>
-                                        <div className="pb-4 text-gray-300">
+                                        <div className="pb-0 sm:pb-4 text-gray-300 rotate-90 sm:rotate-0">
                                             <ArrowRight className="w-5 h-5 md:w-6 md:h-6" />
                                         </div>
-                                        <div className="flex-1">
+                                        <div className="w-full sm:flex-1">
                                             <InputField
                                                 label="Nueva"
                                                 icon={<Clock size={16} />}
@@ -392,11 +392,52 @@ export default function ManualFichajeModal({
                         ) : (
                             /* Full View */
                             <>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                                <div className="space-y-6">
                                     <InputField label="Fecha" icon={<Calendar size={16} />} type="date" value={fecha} onChange={setFecha} />
-                                    <InputField label="Entrada" icon={<Clock size={16} />} type="time" value={entrada} onChange={setEntrada} />
-                                    <InputField label="Salida" icon={<Clock size={16} />} type="time" value={salida} onChange={setSalida} />
+
+                                    <div className="p-5 bg-gray-50/50 rounded-[2rem] border border-gray-100 space-y-6">
+                                        <InputField label="Entrada" icon={<Clock size={16} />} type="time" value={entrada} onChange={setEntrada} />
+
+                                        {/* Pausas Section - Moved here */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between px-1">
+                                                <h4 className="text-sm font-black text-gray-900 tracking-tight">Pausas</h4>
+                                                <button onClick={addPausa} className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-gray-900 text-white rounded-xl text-[10px] md:text-xs font-bold hover:bg-black transition-all">
+                                                    <Plus size={14} /> Añadir
+                                                </button>
+                                            </div>
+                                            {pausas.length === 0 ? (
+                                                <div className="p-6 md:p-8 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center bg-white/50">
+                                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Sin pausas registradas</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {pausas.map((p, idx) => (
+                                                        <div key={idx} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm relative group">
+                                                            <div className="absolute -top-2.5 left-4 bg-white px-2 text-[10px] font-black text-primary uppercase tracking-wider border border-gray-100 rounded-md shadow-sm">
+                                                                Pausa #{idx + 1}
+                                                            </div>
+                                                            <button
+                                                                onClick={() => removePausa(idx)}
+                                                                className="absolute -top-2 -right-2 p-1.5 bg-white text-gray-300 hover:text-red-500 hover:bg-red-50 border border-gray-100 rounded-full shadow-sm transition-all"
+                                                                title="Eliminar pausa"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
+                                                                <InputField type="time" label="Inicio" value={p.inicio} onChange={v => updatePausa(idx, { inicio: v })} compact />
+                                                                <InputField type="time" label="Fin" value={p.fin} onChange={v => updatePausa(idx, { fin: v })} compact />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <InputField label="Salida" icon={<Clock size={16} />} type="time" value={salida} onChange={setSalida} />
+                                    </div>
                                 </div>
+
                                 <CustomSelect
                                     label={<span>Motivo del cambio <span className="text-red-500">*</span></span>}
                                     icon={FileText}
@@ -418,34 +459,6 @@ export default function ManualFichajeModal({
                                         * El motivo y la justificación son obligatorios según la Ley de Control Horario 2026
                                     </p>
                                 </div>
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between px-1">
-                                        <h4 className="text-sm font-black text-gray-900 tracking-tight">Pausas</h4>
-                                        <button onClick={addPausa} className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-all">
-                                            <Plus size={14} /> Añadir
-                                        </button>
-                                    </div>
-                                    {pausas.length === 0 ? (
-                                        <div className="p-8 rounded-[2rem] border-2 border-dashed border-gray-100 flex flex-col items-center justify-center">
-                                            <p className="text-xs font-bold text-gray-300 uppercase tracking-widest">Sin pausas</p>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {pausas.map((p, idx) => (
-                                                <div key={idx} className="bg-white border border-gray-100 rounded-[1.5rem] p-5 shadow-sm">
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <span className="text-[10px] font-black text-primary uppercase bg-primary/5 px-2 py-1 rounded-md tracking-tighter italic">Pausa #{idx + 1}</span>
-                                                        <button onClick={() => removePausa(idx)} className="p-1 text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <InputField type="time" label="Inicio" value={p.inicio} onChange={v => updatePausa(idx, { inicio: v })} compact />
-                                                        <InputField type="time" label="Fin" value={p.fin} onChange={v => updatePausa(idx, { fin: v })} compact />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
                             </>
                         )}
                     </div>
@@ -459,7 +472,7 @@ export default function ManualFichajeModal({
                     {/* Spacer to allow modal scrolling when dropdown is open */}
                     <div className={cn("transition-all duration-300", dropdownOpen ? "h-64" : "h-0")} />
                 </div>
-                <div className="p-5 md:p-8 pt-2 md:pt-4 flex gap-3 bg-white border-t border-gray-50">
+                <div className="p-4 md:p-8 pt-2 md:pt-4 flex gap-3 bg-white border-t border-gray-50">
                     <button onClick={() => !saving && onClose()} className="flex-1 py-3 md:py-4 rounded-xl md:rounded-[1.2rem] border border-gray-100 text-gray-500 text-xs md:text-sm font-black uppercase tracking-widest hover:bg-gray-50 transition-all" disabled={saving}>Cancelar</button>
                     <button onClick={submit} disabled={saving} className="flex-[2] py-3 md:py-4 rounded-xl md:rounded-[1.2rem] bg-gray-900 text-white text-xs md:text-sm font-black uppercase tracking-[0.15em] hover:bg-black shadow-lg shadow-gray-200 transition-all flex items-center justify-center gap-2 group disabled:opacity-50">
                         {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <span>{isSimpleMode ? 'Actualizar' : (user?.admin ? 'Guardar' : 'Solicitar')}</span>}

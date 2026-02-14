@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { MapPinHouse, Plus, MapPin, Trash2, Save, X, Users, Search, Loader2, Check, PencilLine } from 'lucide-react';
+import { MapPinHouse, Plus, MapPin, Trash2, Save, X, Users, Search, Loader2, Check, PencilLine, MapPinned, AlertTriangle, ArrowRight } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
 import { toast } from 'react-hot-toast';
 import { DolibarrUser } from '@/lib/admin-types';
 import dynamic from 'next/dynamic';
+import { isProject, getCleanLabel, formatLabelForSave } from '@/lib/center-utils';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 
 const LocationMapPicker = dynamic(() => import('@/components/ui/LocationMapPicker'), {
     ssr: false,
@@ -34,6 +36,8 @@ export default function CentersPage() {
     // Edit/Create State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCenter, setEditingCenter] = useState<Partial<Center> | null>(null);
+    const [selectedType, setSelectedType] = useState<'center' | 'project'>('center');
+    const [conflictData, setConflictData] = useState<{ user: UserWithConfig, centers: Center[] } | null>(null);
 
     // Employee Assignment State
     const [users, setUsers] = useState<UserWithConfig[]>([]);
@@ -126,6 +130,7 @@ export default function CentersPage() {
 
     const openCreateModal = () => {
         setEditingCenter({ radius: 100 });
+        setSelectedType('center');
         setAssignedUserIds(new Set());
         setUsers([]);
         setIsModalOpen(true);
@@ -133,7 +138,11 @@ export default function CentersPage() {
     };
 
     const openEditModal = (center: Center) => {
-        setEditingCenter({ ...center });
+        setEditingCenter({
+            ...center,
+            label: getCleanLabel(center.label) // Clean label for editing
+        });
+        setSelectedType(isProject(center.label) ? 'project' : 'center');
         setUsers([]);
         setIsModalOpen(true);
 
@@ -170,13 +179,17 @@ export default function CentersPage() {
         let centerId = editingCenter.rowid;
 
         try {
+            // Format label with prefix if needed
+            const finalLabel = formatLabelForSave(editingCenter.label, selectedType === 'project');
+            const dataToSave = { ...editingCenter, label: finalLabel };
+
             // 1. Save/Update Center
             if (centerId) {
                 // Update
                 const res = await fetch(`/api/centers/${centerId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'DOLAPIKEY': token || '' },
-                    body: JSON.stringify(editingCenter)
+                    body: JSON.stringify(dataToSave)
                 });
                 if (!res.ok) throw new Error('Error al actualizar centro');
                 toast.success('Centro actualizado');
@@ -185,7 +198,7 @@ export default function CentersPage() {
                 const res = await fetch('/api/centers', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'DOLAPIKEY': token || '' },
-                    body: JSON.stringify(editingCenter)
+                    body: JSON.stringify(dataToSave)
                 });
                 if (!res.ok) throw new Error('Error al crear centro');
                 const data = await res.json();
@@ -288,10 +301,29 @@ export default function CentersPage() {
 
     const toggleUserAssignment = (userId: string) => {
         const newSet = new Set(assignedUserIds);
+        const user = users.find(u => u.id === userId);
+
         if (newSet.has(userId)) {
             newSet.delete(userId);
         } else {
             newSet.add(userId);
+            // Check if user is already assigned to OTHER centers
+            if (user) {
+                const currentCenterId = Number(editingCenter?.rowid || 0);
+
+                // Determine centers user is assigned to that are NOT the current one being edited
+                const otherAssignments = user.assignedCenters.filter(id =>
+                    Number(id) !== currentCenterId
+                );
+
+                if (otherAssignments.length > 0) {
+                    const conflictingCenters = centers.filter(c => otherAssignments.includes(c.rowid));
+                    setConflictData({
+                        user,
+                        centers: conflictingCenters
+                    });
+                }
+            }
         }
         setAssignedUserIds(newSet);
     };
@@ -301,13 +333,76 @@ export default function CentersPage() {
         (u.firstname + ' ' + u.lastname).toLowerCase().includes(userSearch.toLowerCase())
     );
 
+    const workCenters = centers.filter(c => !isProject(c.label));
+    const projects = centers.filter(c => isProject(c.label));
+
+    const renderCenterCard = (center: Center, index: number, isProj: boolean) => {
+        const colors = [
+            { bg: 'bg-emerald-50', border: 'border-emerald-100', hover: 'group-hover:border-emerald-200', gradient: 'from-emerald-500/40 to-transparent', btn: 'hover:bg-emerald-100/50 text-emerald-600' },
+            { bg: 'bg-blue-50', border: 'border-blue-100', hover: 'group-hover:border-blue-200', gradient: 'from-blue-500/40 to-transparent', btn: 'hover:bg-blue-100/50 text-blue-600' },
+            { bg: 'bg-amber-50', border: 'border-amber-100', hover: 'group-hover:border-amber-200', gradient: 'from-amber-500/40 to-transparent', btn: 'hover:bg-amber-100/50 text-amber-600' },
+            { bg: 'bg-rose-50', border: 'border-rose-100', hover: 'group-hover:border-rose-200', gradient: 'from-rose-500/40 to-transparent', btn: 'hover:bg-rose-100/50 text-rose-600' },
+            { bg: 'bg-violet-50', border: 'border-violet-100', hover: 'group-hover:border-violet-200', gradient: 'from-violet-500/40 to-transparent', btn: 'hover:bg-violet-100/50 text-violet-600' },
+            { bg: 'bg-indigo-50', border: 'border-indigo-100', hover: 'group-hover:border-indigo-200', gradient: 'from-indigo-500/40 to-transparent', btn: 'hover:bg-indigo-100/50 text-indigo-600' },
+        ];
+        const color = colors[index % colors.length];
+
+        return (
+            <div
+                key={center.rowid}
+                className={`group relative flex items-center gap-5 bg-white p-5 rounded-[2rem] border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-500 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 overflow-hidden ${color.hover}`}
+            >
+                {/* Decorative Gradient Background */}
+                <div className={`absolute bottom-0 right-0 w-32 h-32 bg-gradient-to-tl ${color.gradient} blur-2xl rounded-tl-full opacity-100 pointer-events-none`} />
+
+                {/* Icon Container - Left */}
+                <div className={`relative shrink-0 flex h-16 w-16 items-center justify-center rounded-[1.2rem] bg-gray-50 border border-gray-100 text-black transition-all duration-500 group-hover:scale-110 group-hover:bg-white group-hover:shadow-md z-10`}>
+                    {isProj ? <MapPinned size={28} strokeWidth={1.5} /> : <MapPinHouse size={28} strokeWidth={1.5} />}
+                </div>
+
+                {/* Content - Right */}
+                <div className="flex-1 min-w-0 relative z-10">
+                    <div className="flex justify-between items-start">
+                        <div className="flex flex-col">
+                            <h3 className="text-lg font-bold text-[#121726] tracking-tight truncate pr-2">
+                                {getCleanLabel(center.label)}
+                            </h3>
+                            <div className="flex items-center gap-1.5 -mt-0.5">
+                                <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                                <span className="text-[10px] font-bold text-gray-400">Radio: {center.radius}m</span>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => openEditModal(center)}
+                                className={`p-2 rounded-xl transition-all ${color.btn} hover:scale-110 active:scale-95`}
+                                title="Editar"
+                            >
+                                <PencilLine size={18} strokeWidth={2} />
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleDelete(center.rowid); }}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all hover:scale-110 active:scale-95"
+                                title="Borrar"
+                            >
+                                <Trash2 size={18} strokeWidth={2} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="flex min-h-screen bg-[#FAFBFC]">
             <div className="hidden md:block"><Sidebar /></div>
             <main className="flex-1 ml-0 md:ml-64 p-6 md:p-12 pb-32">
                 <PageHeader
-                    title="Centros de Trabajo"
-                    subtitle="Gestiona las ubicaciones para el fichaje"
+                    title="Centros y Proyectos"
+                    subtitle="Gestiona las ubicaciones y proyectos para los fichajes"
                     icon={MapPinHouse}
                     badge="Configuración"
                     showBack={true}
@@ -320,77 +415,41 @@ export default function CentersPage() {
                             className="bg-black text-white px-5 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-black/5 hover:shadow-black/10 hover:-translate-y-0.5 transition-all"
                         >
                             <Plus size={20} />
-                            <span>Nuevo Centro</span>
+                            <span>Nuevo Registro</span>
                         </button>
                     </div>
 
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {centers.map((center, index) => {
-                            const colors = [
-                                { bg: 'bg-emerald-50', border: 'border-emerald-100', hover: 'group-hover:border-emerald-200', gradient: 'from-emerald-500/40 to-transparent', btn: 'hover:bg-emerald-100/50 text-emerald-600' },
-                                { bg: 'bg-blue-50', border: 'border-blue-100', hover: 'group-hover:border-blue-200', gradient: 'from-blue-500/40 to-transparent', btn: 'hover:bg-blue-100/50 text-blue-600' },
-                                { bg: 'bg-amber-50', border: 'border-amber-100', hover: 'group-hover:border-amber-200', gradient: 'from-amber-500/40 to-transparent', btn: 'hover:bg-amber-100/50 text-amber-600' },
-                                { bg: 'bg-rose-50', border: 'border-rose-100', hover: 'group-hover:border-rose-200', gradient: 'from-rose-500/40 to-transparent', btn: 'hover:bg-rose-100/50 text-rose-600' },
-                                { bg: 'bg-violet-50', border: 'border-violet-100', hover: 'group-hover:border-violet-200', gradient: 'from-violet-500/40 to-transparent', btn: 'hover:bg-violet-100/50 text-violet-600' },
-                                { bg: 'bg-indigo-50', border: 'border-indigo-100', hover: 'group-hover:border-indigo-200', gradient: 'from-indigo-500/40 to-transparent', btn: 'hover:bg-indigo-100/50 text-indigo-600' },
-                            ];
-                            const color = colors[index % colors.length];
-
-                            return (
-                                <div
-                                    key={center.rowid}
-                                    className={`group relative flex items-center gap-5 bg-white p-5 rounded-[2rem] border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-500 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 overflow-hidden ${color.hover}`}
-                                >
-                                    {/* Decorative Gradient Background */}
-                                    <div className={`absolute bottom-0 right-0 w-32 h-32 bg-gradient-to-tl ${color.gradient} blur-2xl rounded-tl-full opacity-100 pointer-events-none`} />
-
-                                    {/* Icon Container - Left */}
-                                    <div className={`relative shrink-0 flex h-16 w-16 items-center justify-center rounded-[1.2rem] bg-gray-50 border border-gray-100 text-black transition-all duration-500 group-hover:scale-110 group-hover:bg-white group-hover:shadow-md z-10`}>
-                                        <MapPinHouse size={28} strokeWidth={1.5} />
-                                    </div>
-
-                                    {/* Content - Right */}
-                                    <div className="flex-1 min-w-0 relative z-10">
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex flex-col">
-                                                <h3 className="text-lg font-bold text-[#121726] tracking-tight truncate pr-2">
-                                                    {center.label}
-                                                </h3>
-                                                <div className="flex items-center gap-1.5 -mt-0.5">
-                                                    <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                                                    <span className="text-[10px] font-bold text-gray-400">Radio: {center.radius}m</span>
-                                                </div>
-                                            </div>
-
-                                            {/* Action Buttons */}
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={() => openEditModal(center)}
-                                                    className={`p-2 rounded-xl transition-all ${color.btn} hover:scale-110 active:scale-95`}
-                                                    title="Editar"
-                                                >
-                                                    <PencilLine size={18} strokeWidth={2} />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleDelete(center.rowid); }}
-                                                    className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all hover:scale-110 active:scale-95"
-                                                    title="Borrar"
-                                                >
-                                                    <Trash2 size={18} strokeWidth={2} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-
-                        {centers.length === 0 && !loading && (
-                            <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-[2rem] border border-dashed border-gray-200">
-                                No hay centros configurados
+                    {/* Work Centers Section */}
+                    {workCenters.length > 0 && (
+                        <div className="space-y-4">
+                            <h3 className="text-xl font-bold flex items-center gap-2 px-1">
+                                <MapPinHouse className="text-black" size={24} />
+                                Centros de Trabajo
+                            </h3>
+                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                {workCenters.map((center, index) => renderCenterCard(center, index, false))}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
+
+                    {/* Projects Section */}
+                    {projects.length > 0 && (
+                        <div className="space-y-4">
+                            <h3 className="text-xl font-bold flex items-center gap-2 px-1 pt-6">
+                                <MapPinned className="text-black" size={24} />
+                                Proyectos / Obras
+                            </h3>
+                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                {projects.map((center, index) => renderCenterCard(center, index, true))}
+                            </div>
+                        </div>
+                    )}
+
+                    {centers.length === 0 && !loading && (
+                        <div className="col-span-full py-12 text-center text-gray-400 bg-white rounded-[2rem] border border-dashed border-gray-200">
+                            No hay centros ni proyectos configurados
+                        </div>
+                    )}
                 </div>
             </main>
 
@@ -404,7 +463,7 @@ export default function CentersPage() {
                                     {editingCenter?.rowid ? <PencilLine size={18} /> : <Plus size={18} />}
                                 </div>
                                 <h3 className="text-lg font-extrabold text-[#121726] tracking-tight">
-                                    {editingCenter?.rowid ? 'Editar Centro' : 'Nuevo Centro'}
+                                    {editingCenter?.rowid ? 'Editar' : 'Nuevo Registro'}
                                 </h3>
                             </div>
                             <button
@@ -416,16 +475,43 @@ export default function CentersPage() {
                         </div>
 
                         <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 space-y-5">
+                            {/* Section: Type Selection */}
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Tipo de Ubicación</label>
+                                <div className="grid grid-cols-2 gap-2 bg-gray-50 p-1 rounded-xl border border-gray-100">
+                                    <button
+                                        onClick={() => setSelectedType('center')}
+                                        className={`py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${selectedType === 'center'
+                                            ? 'bg-white shadow-sm text-black ring-1 ring-black/5'
+                                            : 'text-gray-400 hover:text-gray-600'
+                                            }`}
+                                    >
+                                        <MapPinHouse size={14} />
+                                        Centro de Trabajo
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedType('project')}
+                                        className={`py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${selectedType === 'project'
+                                            ? 'bg-white shadow-sm text-black ring-1 ring-black/5'
+                                            : 'text-gray-400 hover:text-gray-600'
+                                            }`}
+                                    >
+                                        <MapPinned size={14} />
+                                        Proyecto / Obra
+                                    </button>
+                                </div>
+                            </div>
+
                             {/* Section: General Info */}
                             <div className="space-y-3">
                                 <div className="relative">
                                     <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1 ml-1 flex items-center gap-1">
-                                        Nombre del Centro
+                                        Nombre {selectedType === 'project' ? 'del Proyecto' : 'del Centro'}
                                     </label>
                                     <input
                                         type="text"
                                         className="w-full bg-gray-50/50 border-2 border-transparent focus:border-black/5 focus:bg-white rounded-xl p-2.5 text-sm font-bold transition-all outline-none"
-                                        placeholder="Ej. Sede Principal"
+                                        placeholder={selectedType === 'project' ? "Ej. Reforma Calle Mayor" : "Ej. Sede Principal"}
                                         value={editingCenter?.label || ''}
                                         onChange={e => setEditingCenter(prev => ({ ...(prev || {}), label: e.target.value }))}
                                     />
@@ -582,6 +668,57 @@ export default function CentersPage() {
                     </div>
                 </div>
             )}
+
+            {/* Conflict Warning Bottom Sheet */}
+            <div className={`fixed inset-x-0 bottom-0 z-[100] transform transition-transform duration-500 ease-out ${conflictData ? 'translate-y-0' : 'translate-y-full'}`}>
+                {/* Backdrop for click-outside dismissal */}
+                {conflictData && (
+                    <div className="absolute inset-0 -top-[100vh] bg-black/5 backdrop-blur-[1px]" onClick={() => setConflictData(null)} />
+                )}
+
+                <div className="relative bg-white border-t border-gray-100 shadow-[0_-20px_50px_rgba(0,0,0,0.1)] rounded-t-[2.5rem] p-8 max-w-md mx-auto md:mb-8 md:rounded-[2.5rem] md:border">
+                    <div className="w-12 h-1 bg-gray-100 rounded-full mx-auto mb-8" />
+
+                    <div className="flex flex-col items-center text-center space-y-5">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500">
+                            <AlertTriangle size={22} strokeWidth={2.5} />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <h4 className="text-base font-bold text-gray-900 tracking-tight">
+                                Asignación Múltiple
+                            </h4>
+                            <p className="text-xs text-gray-500 font-medium max-w-[280px] leading-relaxed">
+                                <span className="text-gray-900 font-bold">{conflictData?.user.firstname} {conflictData?.user.lastname}</span> ya tiene otro/s centro/s asignado/s. ¿Deseas proceder con la asignación?
+                            </p>
+                        </div>
+
+                        <div className="w-full flex flex-wrap justify-center gap-2">
+                            {conflictData?.centers.map(center => {
+                                const isProj = isProject(center.label);
+                                return (
+                                    <div key={center.rowid} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-100">
+                                        <div className={`${isProj ? 'text-gray-400' : 'text-blue-400'}`}>
+                                            {isProj ? <MapPinned size={11} /> : <MapPinHouse size={11} />}
+                                        </div>
+                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">{getCleanLabel(center.label)}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="w-full pt-1">
+                            <button
+                                onClick={() => setConflictData(null)}
+                                className="w-full bg-black text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-black/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-[11px]"
+                            >
+                                <span>Continuar asignación</span>
+                                <ArrowRight size={14} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <MobileNav />
         </div>

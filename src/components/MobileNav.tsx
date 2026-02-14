@@ -22,9 +22,10 @@ export default function MobileNav() {
             try {
                 if (user.admin) {
                     // Admin: Check for pending tasks
-                    await fetchCorrections(undefined, 'pendiente');
-                    const pendingVacs = await fetchVacations({ estado: 'pendiente' });
-                    setHasNotifications(pendingVacs.length > 0 || corrections.length > 0);
+                    // Fix: use the returned data directly instead of relying on state
+                    const pendingCorrections = await fetchCorrections(undefined, 'pendiente') || [];
+                    const pendingVacs = await fetchVacations({ estado: 'pendiente' }) || [];
+                    setHasNotifications(pendingVacs.length > 0 || pendingCorrections.length > 0);
                 } else {
                     // User: Check for pending admin-initiated corrections
                     const token = localStorage.getItem('dolibarr_token');

@@ -135,6 +135,15 @@ const UserCorrectionsPanel: React.FC<UserCorrectionsPanelProps> = ({ corrections
         setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
+    // Helper to check for REAL time differences (ignore format mismatches or empty vs null)
+    const areTimesDifferent = (t1: string | null | undefined, t2: string | null | undefined) => {
+        const v1 = formatTime(t1);
+        const v2 = formatTime(t2);
+        // If both are placeholder/empty, they are equal
+        if (v1 === '--:--' && v2 === '--:--') return false;
+        return v1 !== v2;
+    };
+
     // Split corrections into individual action items
     const flattenedItems: Array<any> = [];
     corrections.forEach(c => {
@@ -147,19 +156,19 @@ const UserCorrectionsPanel: React.FC<UserCorrectionsPanelProps> = ({ corrections
         const actions: any[] = [];
 
         // 1. Entrada
-        if (c.hora_entrada && c.hora_entrada !== (c.hora_entrada_original || '')) {
+        if (c.hora_entrada && areTimesDifferent(c.hora_entrada, c.hora_entrada_original)) {
             actions.push({ ...c, virtualId: `${c.rowid}-entrada`, specificType: 'entrada' });
         }
         // 2. Salida
-        if (c.hora_salida && c.hora_salida !== (c.hora_salida_original || '')) {
+        if (c.hora_salida && areTimesDifferent(c.hora_salida, c.hora_salida_original)) {
             actions.push({ ...c, virtualId: `${c.rowid}-salida`, specificType: 'salida' });
         }
         // 3. Pausas
         pPausas.forEach((p: any, idx: number) => {
-            if (p.inicio_iso && p.inicio_iso !== (p.original_inicio_iso || '')) {
+            if (p.inicio_iso && areTimesDifferent(p.inicio_iso, p.original_inicio_iso)) {
                 actions.push({ ...c, virtualId: `${c.rowid}-pausa-${idx}`, specificType: 'pausa', pData: p });
             }
-            if (p.fin_iso && p.fin_iso !== (p.original_fin_iso || '')) {
+            if (p.fin_iso && areTimesDifferent(p.fin_iso, p.original_fin_iso)) {
                 actions.push({ ...c, virtualId: `${c.rowid}-regreso-${idx}`, specificType: 'regreso', pData: p });
             }
         });

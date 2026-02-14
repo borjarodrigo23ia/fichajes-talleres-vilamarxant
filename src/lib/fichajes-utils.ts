@@ -25,6 +25,7 @@ export type TimelineEvent = {
     pauseEnd?: Date;   // For pause events: end time of the pause pair
     contextEntry?: Date; // For validation: entry time of the cycle
     contextExit?: Date;  // For validation: exit time of the cycle
+    isNextDay?: boolean; // True if the event happens on a day different from the entry
 };
 
 const hasValidCoords = (lat?: any, lng?: any): boolean => {
@@ -74,8 +75,16 @@ export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
             early_entry_warning: cycle.entrada.early_entry_warning,
             justification: cycle.entrada.justification,
             contextEntry: entradaDate,
-            contextExit: salidaDate
+            contextExit: salidaDate,
+            isNextDay: false // Entry is always day 0
         });
+
+        // Helper to check if date is different day than entry
+        const checkIsNextDay = (date: Date): boolean => {
+            return date.getDate() !== entradaDate.getDate() ||
+                date.getMonth() !== entradaDate.getMonth() ||
+                date.getFullYear() !== entradaDate.getFullYear();
+        };
 
         // Pausas
         if (cycle.pausas && cycle.pausas.length > 0) {
@@ -106,7 +115,8 @@ export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
                     pauseStart: pausaInicio,
                     pauseEnd: pausaFinDate,
                     contextEntry: entradaDate,
-                    contextExit: salidaDate
+                    contextExit: salidaDate,
+                    isNextDay: checkIsNextDay(pausaInicio)
                 });
 
                 if (pausa.fin) {
@@ -129,11 +139,11 @@ export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
                         originalTime: pausa.fin.fecha_original ? parseDolibarrDate(pausa.fin.fecha_original) : undefined,
                         location_warning: pausa.fin.location_warning,
                         early_entry_warning: pausa.fin.early_entry_warning,
-                        justification: pausa.fin.justification,
                         pauseStart: pausaInicio,
                         pauseEnd: pausaFin,
                         contextEntry: entradaDate,
-                        contextExit: salidaDate
+                        contextExit: salidaDate,
+                        isNextDay: checkIsNextDay(pausaFin)
                     });
                 }
             });
@@ -162,7 +172,8 @@ export const getDailyEvents = (cycles: WorkCycle[]): TimelineEvent[] => {
                 early_entry_warning: cycle.salida.early_entry_warning,
                 justification: cycle.salida.justification,
                 contextEntry: entradaDate,
-                contextExit: salidaDate
+                contextExit: salidaDate,
+                isNextDay: checkIsNextDay(salidaDate!)
             });
         }
     });

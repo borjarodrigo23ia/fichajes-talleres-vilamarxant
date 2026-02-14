@@ -188,7 +188,7 @@ export default function AuditHistoryList({ userId, limit }: AuditHistoryListProp
     return (
         <div className="space-y-8 pb-32">
             {/* Filter Header */}
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between p-2 bg-white/50 backdrop-blur-xl rounded-[2.5rem] border border-white/50 shadow-premium">
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between p-2 bg-white/50 backdrop-blur-xl rounded-[2.5rem] border border-white/50 shadow-premium fix-safari-blur">
                 <div className="relative flex-1 w-full">
                     <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400" size={18} strokeWidth={2.5} />
                     <input
