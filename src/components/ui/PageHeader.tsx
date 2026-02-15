@@ -16,6 +16,7 @@ interface PageHeaderProps {
     subtitle?: string;
     badge?: string;
     showBack?: boolean;
+    backUrl?: string; // Optional custom back URL
     icon?: LucideIcon;
     children?: React.ReactNode;
     className?: string;
@@ -27,12 +28,21 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     subtitle,
     badge,
     showBack = false,
+    backUrl,
     icon: Icon,
     children,
     className,
     isLive = false
 }) => {
     const router = useRouter();
+
+    const handleBack = () => {
+        if (backUrl) {
+            router.push(backUrl);
+        } else {
+            router.back();
+        }
+    };
 
     return (
         <header className={cn("relative z-30 mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6 animate-fade-in py-2", className)}>
@@ -48,7 +58,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-6">
                 {showBack ? (
                     <button
-                        onClick={() => router.back()}
+                        onClick={handleBack}
                         className="relative shrink-0 group focus:outline-none"
                         title="Volver"
                     >
@@ -57,14 +67,14 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                             <ArrowLeft size={24} strokeWidth={2.5} />
                         </div>
                     </button>
-                ) : Icon && (
+                ) : (Icon && (
                     <div className="relative shrink-0 group">
                         <div className="absolute inset-0 bg-primary/10 rounded-[1.5rem] blur-2xl group-hover:bg-primary/20 transition-all duration-700" />
                         <div className="relative w-16 h-16 bg-white rounded-[1.75rem] border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-center justify-center text-primary transition-transform duration-500 group-hover:scale-105">
                             <Icon size={32} strokeWidth={2} />
                         </div>
                     </div>
-                )}
+                ))}
 
                 <div>
                     {(badge || isLive) && (

@@ -122,6 +122,7 @@ export default function AdminUsersPage() {
                     subtitle="Gestión de configuración y estado de trabajo"
                     icon={Users}
                     showBack
+                    backUrl="/admin"
                     badge="Administración"
                 />
 

@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import MobileNav from '@/components/MobileNav';
-import { Users, BadgeCheck, Settings, LayoutDashboard, CalendarClock, ChevronRight, MapPinHouse, CalendarRange, Palmtree } from 'lucide-react';
+import { Users, BadgeCheck, Settings, LayoutDashboard, CalendarClock, ChevronRight, MapPinHouse, CalendarRange, Palmtree, HouseHeart } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { useCorrections } from '@/hooks/useCorrections';
 import { useVacations } from '@/hooks/useVacations';
@@ -51,6 +51,7 @@ export default function AdminPage() {
             badge: pendingVacations
         },
         { title: 'Gestión de Jornadas', icon: CalendarRange, href: '/admin/jornadas', desc: 'Asignar jornadas a trabajadores', color: 'orange' },
+        { title: 'Datos Empresa', icon: HouseHeart, href: '/admin/empresa', desc: 'Configurar identidad y logo', color: 'purple' },
     ];
 
     return (

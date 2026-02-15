@@ -144,9 +144,10 @@ export default function UserConfigPage({ params }: { params: Promise<{ id: strin
             <main className="flex-1 ml-0 md:ml-64 p-6 md:p-12 pb-32">
                 <PageHeader
                     title="Ajustes de Empleado"
-                    subtitle={userData ? `${userData.firstname || userData.login} ${userData.lastname || ''}` : `ID: ${id}`}
+                    subtitle={userData ? `${userData.firstname || userData.login} ${userData.lastname || ''}` : ''}
                     icon={Settings}
                     showBack
+                    backUrl="/admin/users"
                     badge="Administración"
                 />
 

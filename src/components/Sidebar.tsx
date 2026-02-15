@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Clock, BadgeCheck, LayoutDashboard, Users, CalendarClock, MapPinHouse, Settings, X } from 'lucide-react';
+import { Clock, BadgeCheck, LayoutDashboard, Users, CalendarClock, MapPinHouse, Settings, X, HouseHeart } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 
@@ -19,6 +19,7 @@ export default function Sidebar() {
             { name: 'Admin Dashboard', icon: LayoutDashboard, href: '/admin' },
             { name: 'Empleados', icon: Users, href: '/admin/users' },
             { name: 'Centros', icon: MapPinHouse, href: '/admin/centers' },
+            { name: 'Empresa', icon: HouseHeart, href: '/admin/empresa' },
             { name: 'Configuración', icon: Settings, href: '/admin/settings' },
             { name: 'Solicitudes', icon: BadgeCheck, href: '/admin/corrections' },
         ] : [])
